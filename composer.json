@@ -1,0 +1,19 @@
+{
+    "name": "event-candy/sets-plugin",
+    "description": "EventCandy Sets",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "version": "1.0.0",
+    "autoload": {
+        "psr-4": {
+            "EventCandy\\Sets\\": "src/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "EventCandy\\Sets\\EventCandySets",
+        "label": {
+            "de-DE": "Sets plugin",
+            "en-GB": "Sets plugin"
+        }
+    }
+}
