@@ -16,7 +16,7 @@ class ProductExtension extends EntityExtension
     public function extendFields(FieldCollection $collection): void
     {
         $collection->add(
-            (new BoolField('is_set', 'isSet'))->addFlags(new Inherited())
+            (new BoolField('is_set', 'isSet'))
         );
         $collection->add(
             (new ManyToManyAssociationField(
@@ -25,7 +25,7 @@ class ProductExtension extends EntityExtension
                 SetProductDefinition::class,
                 'set_product_id',
                 'product_id'
-            ))->addFlags(new Runtime())
+            ))
         );
     }
 
