@@ -2,12 +2,10 @@
 
 namespace EventCandy\Sets\Core\Content\Product;
 
-use EventCandy\Sets\Core\Content\SetProduct\SetProductDefinition;
+use EventCandy\Sets\Core\Content\Set\Aggregate\SetProductDefinition;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityExtension;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\BoolField;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Inherited;
-use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\Runtime;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\ManyToManyAssociationField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 
@@ -16,14 +14,11 @@ class ProductExtension extends EntityExtension
     public function extendFields(FieldCollection $collection): void
     {
         $collection->add(
-            (new BoolField('is_set', 'isSet'))
-        );
-        $collection->add(
             (new ManyToManyAssociationField(
-                'products',
+                'sets',
                 ProductDefinition::class,
                 SetProductDefinition::class,
-                'set_product_id',
+                'set_id',
                 'product_id'
             ))
         );

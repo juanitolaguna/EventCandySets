@@ -17,6 +17,6 @@ class EventCandySets extends Plugin
 
         $connection = $this->container->get(Connection::class);
         $connection->executeUpdate('DROP TABLE IF EXISTS `ec_set_product`');
-//        $connection->executeUpdate('ALTER TABLE `product` DROP COLUMN `is_set`');
+        $connection->executeUpdate('DROP TABLE IF EXISTS `ec_set`');
     }
 }

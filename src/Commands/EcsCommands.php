@@ -58,7 +58,7 @@ class EcsCommands extends Command
     {
         $output->writeln('Tinker...');
         $criteria = new Criteria();
-        $criteria->addAssociation('bundles');
+        $criteria->addAssociation('sets');
 
         /** @var EntitySearchResult $result */
         $result = $this->productRepository->search($criteria, Context::createDefaultContext());

@@ -5,7 +5,15 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
-        <service id="EventCandy\Sets\Core\Content\SetProduct\SetProductDefinition">
+        <service id="EventCandy\Sets\Core\Content\Product\ProductExtension">
+            <tag name="shopware.entity.extension"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Content\Set\SetDefinition">
+            <tag name="shopware.entity.definition" entity="ec_set"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Content\Set\Aggregate\SetProductDefinition">
             <tag name="shopware.entity.definition" entity="ec_set_product"/>
         </service>
 
