@@ -15,6 +15,12 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * Class EcsCommands
+ * @package EventCandy\Sets\Commands
+ *
+ * bin/console ec:utils --tinker=true | less
+ */
 class EcsCommands extends Command
 {
     protected static $defaultName = 'ec:utils';
@@ -58,7 +64,7 @@ class EcsCommands extends Command
     {
         $output->writeln('Tinker...');
         $criteria = new Criteria();
-        $criteria->addAssociation('sets');
+        $criteria->addAssociation('products');
 
         /** @var EntitySearchResult $result */
         $result = $this->productRepository->search($criteria, Context::createDefaultContext());

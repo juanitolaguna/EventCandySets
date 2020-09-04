@@ -17,6 +17,10 @@
             <tag name="shopware.entity.definition" entity="ec_set_product"/>
         </service>
 
+        <service id="EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductDefinition">
+            <tag name="shopware.entity.definition" entity="ec_product_product"/>
+        </service>
+
         <!-- Commands  -->
         <service id="EventCandy\Sets\Commands\EcsCommands">
             <argument type="service" id="product.repository"/>

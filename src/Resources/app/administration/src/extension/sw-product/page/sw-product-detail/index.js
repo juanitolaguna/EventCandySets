@@ -5,6 +5,7 @@ Component.override('sw-product-detail', {
         productCriteria() {
             const criteria = this.$super('productCriteria');
             criteria.addAssociation('bundles');
+            criteria.addAssociation('sets');
             criteria.addAssociation('products');
 
             return criteria;
