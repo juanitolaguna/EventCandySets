@@ -10,13 +10,31 @@ const {Criteria, EntityCollection} = Shopware.Data;
  * @status ready
  * @example-type code-only
  * @component-example
- * <sw-many-to-many-assignment-card
- *     title="your card title"
- *     :entityCollection="entity.association"
- *     :localMode="entity.isNew()"
- *     :searchableFields="['entity.fieldName', 'entity.otherFieldName']">
+ * This component currently works only for current plugin use case.
+ * Must be refactored to make component reusable.
+ * Common use Case. ManyToMany Relation with additional info.
  *
- * <sw-many-to-many-assignment-card>
+ * Original component does not handle compound primary key. Neither This.
+ * So add an Id col to the ManyToMany Join Tabke entity.
+ * The Component uses the product.products collection.
+ * but needs to use the product_product repository.
+ *
+ * assignmentRepository works for search.
+ * Created from product.extension.products it has a special route: /product/{id}/extensions/products
+ * assignmentRepository works for assign.
+ *
+ * assignmentRepository worked also for paginateGrid,
+ * but I changed the repository in this method to be able to load additional information of the relation.(quantity).
+ * Same happens to the deletion operation because the product_product.id does not match the selectedIds
+ * which are just product id's triggered by the event. Hence the filter operation:
+ * gridRepository.filter(e => e.productId === e.selectedIds);
+ *
+ * #rev: there is an assign operation, but no unassign. Since it is based on route you will need
+ *
+ *
+ *
+ *
+ *
  */
 Component.register('ec-many-to-many-assignment-card', {
     template,
@@ -42,6 +60,16 @@ Component.register('ec-many-to-many-assignment-card', {
 
         localMode: {
             type: Boolean,
+            required: true
+        },
+
+        active: {
+            type: Boolean,
+            required: true
+        },
+
+        entityId: {
+            type: String,
             required: true
         },
 
@@ -80,7 +108,7 @@ Component.register('ec-many-to-many-assignment-card', {
             type: String,
             required: false,
             default() {
-                if (this.localMode){
+                if (this.localMode) {
                     return 'Save your Entity first, than add Associations';
                 } else {
                     return `Add your ${this.entityCollection.entity} associations here...`
@@ -168,19 +196,16 @@ Component.register('ec-many-to-many-assignment-card', {
         criteria: {
             immediate: true,
             handler() {
-                console.log('watch: handler');
                 this.selectedIds = this.entityCollection.getIds();
                 this.gridCriteria = Criteria.fromCriteria(this.criteria);
                 this.searchCriteria = Criteria.fromCriteria(this.criteria);
                 if (!this.localMode) {
-                    console.log('handler - not local mode')
                     this.paginateGrid();
                 }
             }
         },
 
         entityCollection() {
-            console.log('watch entityCollection');
             this.selectedIds = this.entityCollection.getIds();
 
             if (!this.localMode) {
@@ -199,8 +224,6 @@ Component.register('ec-many-to-many-assignment-card', {
     },
 
     created() {
-        console.log('entityCollection.entity: ' + this.entityCollection.entity);
-        console.log('entityCollection.source: ' + this.entityCollection.source);
         this.createdComponent();
     },
 
@@ -212,12 +235,14 @@ Component.register('ec-many-to-many-assignment-card', {
         initData() {
             this.page = 1;
             if (!this.localMode) {
-                console.log('localMode: false');
                 this.selectedIds = this.entityCollection.getIds();
                 return;
             }
-            console.log('localMode: true');
             this.gridData = this.entityCollection;
+        },
+
+        onInlineEdit(item) {
+            this.gridRepository.save(item, this.context);
         },
 
         onSearchTermChange(input) {
@@ -241,6 +266,7 @@ Component.register('ec-many-to-many-assignment-card', {
             this.resetSearchCriteria();
             this.focusEl.select();
 
+            // push
             this.searchItems().then((searchResult) => {
                 this.resultCollection = searchResult;
             });
@@ -260,12 +286,15 @@ Component.register('ec-many-to-many-assignment-card', {
 
         searchItems() {
             return this.searchRepository.search(this.searchCriteria, this.context).then((result) => {
+
                 if (!this.localMode) {
                     const criteria = new Criteria(1, this.searchCriteria.limit);
+                    //Exclude self...(?) does'n affect selection list.
+                    result = result.filter(e => e.id !== this.entityId);
                     criteria.setIds(result.getIds());
-
                     this.assignmentRepository.searchIds(criteria, this.context).then(({data}) => {
                         data.forEach((id) => {
+                            //id is not in selected Id's
                             if (!this.isSelected({id})) {
                                 this.selectedIds.push(id);
                             }
@@ -279,43 +308,49 @@ Component.register('ec-many-to-many-assignment-card', {
 
         onItemSelect(item) {
             if (this.isSelected(item)) {
-                this.removeItem(item);
+                const gridData = this.gridData.filter((e) => {
+                    return e.productId === item.id;
+                });
+                this.removeItem(gridData[0]);
                 return;
             }
 
-            if (this.localMode) {
-                const newCollection = EntityCollection.fromCollection(this.entityCollection);
-                newCollection.push(item);
-
-                this.selectedIds = newCollection.getIds();
-                this.gridData = newCollection;
-
-                this.$emit('change', newCollection);
-                return;
-            }
+            // if (this.localMode) {
+            //     const newCollection = EntityCollection.fromCollection(this.entityCollection);
+            //     newCollection.push(item);
+            //
+            //     this.selectedIds = newCollection.getIds();
+            //     this.gridData = newCollection;
+            //
+            //     this.$emit('change', newCollection);
+            //     return;
+            // }
 
             this.assignmentRepository.assign(item.id, this.context).then(() => {
-                console.log('assign');
                 this.selectedIds.push(item.id);
+
+                // make dropdown removal work instantly. Which is based on grid data.
+                this.paginateGrid();
             });
         },
 
         removeItem(item) {
-            if (this.localMode) {
-                const newCollection = this.entityCollection.filter((selected) => {
-                    return selected.id !== item.id;
-                });
+            // if (this.localMode) {
+            //     const newCollection = this.entityCollection.filter((selected) => {
+            //         return selected.id !== item.id;
+            //     });
+            //
+            //     this.selectedIds = newCollection.getIds();
+            //     this.gridData = newCollection;
+            //
+            //     this.$emit('change', newCollection);
+            //     return Promise.resolve();
+            // }
 
-                this.selectedIds = newCollection.getIds();
-                this.gridData = newCollection;
-
-                this.$emit('change', newCollection);
-                return Promise.resolve();
-            }
-
-            return this.assignmentRepository.delete(item.id, this.context).then(() => {
+            return this.gridRepository.delete(item.id, this.context).then(() => {
                 this.selectedIds = this.selectedIds.filter((selectedId) => {
-                    return selectedId !== item.id;
+                    /** TODO: refactorable??? */
+                    return selectedId !== item.productId;
                 });
             });
         },
@@ -357,28 +392,21 @@ Component.register('ec-many-to-many-assignment-card', {
             this.setGridFilter();
             this.isLoadingGrid = true;
 
-            // this.gridCriteria.setIds(this.selectedIds);
+            // ToDo: refactor(?)
             const criteria = new Criteria();
-            console.log(this.selectedIds);
-            criteria.setIds(this.selectedIds);
+            criteria.addFilter(Criteria.equals('setProductId', this.entityId));
+            criteria.addFilter(Criteria.equalsAny('productId', this.selectedIds));
+            criteria.addAssociation('product');
+
 
             this.gridRepository['repoName'] = 'gridRepository';
 
             if (this.selectedIds.length) {
                 this.gridRepository.search(criteria, this.context).then((assignments) => {
-                    console.log('assignments');
-                    console.log(assignments);
                     this.gridData = assignments;
                     this.isLoadingGrid = false;
                 });
             }
-
-            // this.assignmentRepository.search(this.gridCriteria, this.context).then((assignments) => {
-            //     console.log('assignments');
-            //     console.log(assignments);
-            //     this.gridData = assignments;
-            //     this.isLoadingGrid = false;
-            // });
         },
 
         setGridFilter() {

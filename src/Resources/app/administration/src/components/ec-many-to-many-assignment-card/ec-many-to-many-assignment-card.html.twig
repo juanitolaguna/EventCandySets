@@ -1,5 +1,5 @@
 {% block sw_entity_many_to_many_assignment_card %}
-<sw-card class="sw-many-to-many-assignment-card" v-bind="$attrs">
+    <sw-card class="sw-many-to-many-assignment-card" v-bind="$attrs">
     {% block sw_entity_many_to_many_assignment_card_content %}
     <template #default>
         {% block sw_entity_many_to_many_assignment_card_head %}
@@ -13,7 +13,7 @@
                 @select-collapsed="onSelectCollapsed"
                 v-bind="$attrs"
                 v-on="$listeners"
-                :disabled="localMode"
+                :disabled="!active || localMode"
             >
 
                 <template #sw-select-selection="{ identification, error, disabled, size, expand, collapse }">
@@ -95,13 +95,15 @@
     {% block sw_entity_many_to_many_assignment_card_grid %}
     <template #grid>
         <sw-data-grid
-            v-if="!localMode && selectedIds.length"
+            v-if="!localMode && selectedIds.length && active"
             class="sw-many-to-many-assignment-card__grid"
             :dataSource="gridData"
             :isLoading="isLoadingGrid"
             :columns="columns"
             :v-bind="$attrs"
-            :showSelection="false">
+            :showSelection="false"
+            :allowInlineEdit="true"
+            @inline-edit-save="onInlineEdit">
 
             <template v-for="column in columns" v-slot:[`column-${column.property}`]="columnProps">
                 {% block sw_entity_many_to_many_assignment_card_grid_column %}
@@ -122,14 +124,15 @@
                 {% block sw_entity_many_to_many_assignment_card_grid_footer %}
                 {% block sw_entity_many_to_many_assignment_card_grid_footer_remote_mode %}
                 <template v-if="!localMode">
-                    <sw-pagination
-                        v-if="total > 0"
-                        v-bind="{ limit, page, total }"
-                        :autoHide="false"
-                        @page-change="paginateGrid">
-                    </sw-pagination>
+{#                    <sw-pagination#}
+{#                        v-if="total > 0"#}
+{#                        v-bind="{ limit, page, total }"#}
+{#                        :autoHide="true"#}
+{#                        @page-change="paginateGrid"#}
+{#                    >#}
+{#                    </sw-pagination>#}
 
-                    <div v-else-if="!!searchTerm"
+                    <div v-if="!!searchTerm"
                          class="sw-many-to-many-assignment-card__empty-state">
                         <sw-icon name="default-action-search" size="20px"></sw-icon>
                         {{  $tc('global.sw-select-result-list.messageNoResults') }}
