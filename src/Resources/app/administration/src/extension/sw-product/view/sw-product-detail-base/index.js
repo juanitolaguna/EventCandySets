@@ -15,6 +15,7 @@ Component.override('sw-product-detail-base', {
     },
 
     computed: {
+
         isSetActive() {
             const hasCFProperty = this.product.hasOwnProperty('customFields');
             if (hasCFProperty) {
@@ -57,11 +58,14 @@ Component.override('sw-product-detail-base', {
         product() {
             this.productBelongsToSet();
         }
+
     },
 
     methods: {
         productBelongsToSet() {
             const criteria = new Criteria();
+            // When I checked in computed this.product.id the method threw an exception.
+            // I trigerred the search() with an undefined Id.
             criteria.addFilter(Criteria.equals('productId', this.product.id));
             criteria.addAssociation('setProduct');
 

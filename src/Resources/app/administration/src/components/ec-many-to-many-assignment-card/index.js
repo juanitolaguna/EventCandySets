@@ -1,7 +1,7 @@
 import template from './ec-many-to-many-assignment-card.html.twig';
 import './ec-many-to-many-assignment-card.scss';
 
-const {Component} = Shopware;
+const {Component, Context} = Shopware;
 const {debounce, get} = Shopware.Utils;
 const {Criteria, EntityCollection} = Shopware.Data;
 
@@ -136,11 +136,16 @@ Component.register('ec-many-to-many-assignment-card', {
             gridData: [],
             searchTerm: '',
             totalAssigned: 0,
-            loadingGridState: false
+            loadingGridState: false,
+            systemCurrency: null
         };
     },
 
     computed: {
+        currencyRepository() {
+            return this.repositoryFactory.create('currency');
+        },
+
         context() {
             return this.entityCollection.context;
         },
@@ -190,7 +195,11 @@ Component.register('ec-many-to-many-assignment-card', {
 
         originalFilters() {
             return this.criteria.filters;
-        }
+        },
+
+        getGrossPrice() {
+            return this.gridData.reduce((total, start) => total +  start.product.price[0].gross, 0);
+        },
     },
     watch: {
         criteria: {
@@ -230,6 +239,15 @@ Component.register('ec-many-to-many-assignment-card', {
     methods: {
         createdComponent() {
             this.initData();
+            this.loadSystemCurrency();
+        },
+
+        loadSystemCurrency() {
+            return this.currencyRepository
+                .get(Shopware.Context.app.systemCurrencyId, Context.api)
+                .then((systemCurrency) => {
+                    this.systemCurrency = systemCurrency;
+                });
         },
 
         initData() {
@@ -324,40 +342,19 @@ Component.register('ec-many-to-many-assignment-card', {
                     return e.productId === item.id;
                 });
                 this.removeItem(gridData[0]);
+                this.$emit('item-select-remove', item);
                 return;
             }
 
-            // if (this.localMode) {
-            //     const newCollection = EntityCollection.fromCollection(this.entityCollection);
-            //     newCollection.push(item);
-            //
-            //     this.selectedIds = newCollection.getIds();
-            //     this.gridData = newCollection;
-            //
-            //     this.$emit('change', newCollection);
-            //     return;
-            // }
-
             this.assignmentRepository.assign(item.id, this.context).then(() => {
                 this.selectedIds.push(item.id);
-
                 // make dropdown removal work instantly. Which is based on grid data.
                 this.paginateGrid();
+                this.$emit('item-select-add', item);x
             });
         },
 
         removeItem(item) {
-            // if (this.localMode) {
-            //     const newCollection = this.entityCollection.filter((selected) => {
-            //         return selected.id !== item.id;
-            //     });
-            //
-            //     this.selectedIds = newCollection.getIds();
-            //     this.gridData = newCollection;
-            //
-            //     this.$emit('change', newCollection);
-            //     return Promise.resolve();
-            // }
 
             return this.gridRepository.delete(item.id, this.context).then(() => {
                 this.selectedIds = this.selectedIds.filter((selectedId) => {
