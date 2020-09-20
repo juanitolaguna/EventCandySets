@@ -289,8 +289,20 @@ Component.register('ec-many-to-many-assignment-card', {
 
                 if (!this.localMode) {
                     const criteria = new Criteria(1, this.searchCriteria.limit);
-                    //Exclude self...(?) does'n affect selection list.
-                    result = result.filter(e => e.id !== this.entityId);
+
+                    //entity is not self
+                    result = result.filter(e => {
+                        return e.id !== this.entityId;
+                    });
+
+                    // entity is no a set
+                    result = result.filter(e => {
+                        const hasProperty = e.hasOwnProperty('customFields')
+                            && (e.customFields !== null)
+                            && e.customFields.hasOwnProperty('ec_is_set');
+                        return hasProperty ? !e.customFields['ec_is_set'] : true;
+                    });
+
                     criteria.setIds(result.getIds());
                     this.assignmentRepository.searchIds(criteria, this.context).then(({data}) => {
                         data.forEach((id) => {
@@ -432,6 +444,7 @@ Component.register('ec-many-to-many-assignment-card', {
                         containsFilter
                     )
                 ];
+
                 criteria.term = null;
             }
         },

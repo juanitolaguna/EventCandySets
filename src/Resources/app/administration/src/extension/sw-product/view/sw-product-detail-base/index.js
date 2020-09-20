@@ -1,13 +1,20 @@
 import template from './sw-product-detail-base.html.twig';
 import Criteria from 'src/core/data-new/criteria.data';
 
-const {Component} = Shopware;
+const {Component, Context} = Shopware;
+// const {Criteria, EntityCollection} = Shopware.Data;
 
 Component.override('sw-product-detail-base', {
     template,
 
-    computed: {
+    data() {
+        return {
+            belongsToSet: false,
+            belongsToSetList: null
+        }
+    },
 
+    computed: {
         isSetActive() {
             const hasCFProperty = this.product.hasOwnProperty('customFields');
             if (hasCFProperty) {
@@ -29,8 +36,12 @@ Component.override('sw-product-detail-base', {
                 {
                     property: 'product.name',
                     label: 'Name',
-                    dataIndex: 'name',
-                    sortable: false
+                    sortable: false,
+                },
+                {
+                    property: 'product.price[0].gross',
+                    label: 'Price (brutto)',
+                    sortable: false,
                 }
                 , {
                     property: 'quantity',
@@ -42,6 +53,30 @@ Component.override('sw-product-detail-base', {
         },
     },
 
-    methods: {}
+    watch: {
+        product() {
+            this.productBelongsToSet();
+        }
+    },
+
+    methods: {
+        productBelongsToSet() {
+            const criteria = new Criteria();
+            criteria.addFilter(Criteria.equals('productId', this.product.id));
+            criteria.addAssociation('setProduct');
+
+            console.log('productId: ' + this.product.id);
+
+            this.setProductRepository.search(criteria, Context.api).then((result) => {
+                console.log('result.total: ' + result.total)
+                if (result.total > 0) {
+                    this.belongsToSetList = result;
+                    this.belongsToSet = true;
+                } else {
+                    this.belongsToSet = false;
+                }
+            });
+        },
+    }
 
 });

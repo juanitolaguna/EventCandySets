@@ -2,7 +2,7 @@
     {% parent() %}
 
     <ec-many-to-many-assignment-card
-        v-if="product.extensions && product.extensions.products"
+        v-if="product.extensions && product.extensions.products && !belongsToSet"
         title="Sets"
         :entityCollection="product.extensions.products"
         :localMode="product.isNew()"
@@ -10,7 +10,35 @@
         :gridRepository="setProductRepository"
         :entityId="product.id"
         :active="isSetActive"
-{#        :customGridCriteria="setProductCriteria"#}
+        {#        :customGridCriteria="setProductCriteria"#}
     ></ec-many-to-many-assignment-card>
+
+    <sw-alert
+        v-else
+        variant="info"
+        appearance="default"
+        :showIcon="true"
+        :closable="false"
+        style="max-width: 800px"
+    >
+        Dieses Produkt ist Bestandteil einer Stückliste<br>
+        und kann deswegen nicht in eine Stückliste verwandelt werden.<br><br>
+
+        Wenn du jedoch dieses Produkt in eine Stückliste verwandeln möchtest,<br>
+        musst du bei folgenden Produkten diese Produkt als Stücklistenbestandteil entfernen:
+        <ul style="list-style-type:none">
+
+            <li style="padding-left: 1em;" v-for="product in belongsToSetList  " :key="product.id">
+                <router-link :to="{ name: 'sw.product.detail.base', params: { id: product.setProduct.id } }">
+                    {{ product.setProduct.name }}
+                </router-link>
+            </li>
+
+        </ul>
+
+        <br><span v-if="isSetActive">Immer noch nicht ;)</span>
+    </sw-alert>
+
+
 
 {% endblock %}
