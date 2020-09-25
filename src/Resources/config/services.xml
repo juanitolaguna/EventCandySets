@@ -15,14 +15,6 @@
             <tag name="shopware.entity.extension"/>
         </service>
 
-        <service id="EventCandy\Sets\Core\Content\Set\SetDefinition">
-            <tag name="shopware.entity.definition" entity="ec_set"/>
-        </service>
-
-        <service id="EventCandy\Sets\Core\Content\Set\Aggregate\SetProductDefinition">
-            <tag name="shopware.entity.definition" entity="ec_set_product"/>
-        </service>
-
         <service id="EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductDefinition">
             <tag name="shopware.entity.definition" entity="ec_product_product"/>
         </service>

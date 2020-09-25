@@ -89,15 +89,20 @@ class ProductListingSubscriber implements EventSubscriberInterface
         $calculatedTaxes = $product->getCalculatedPrice()->getCalculatedTaxes();
         $calculatedTaxRules = $product->getCalculatedPrice()->getTaxRules();
 
-
+        $unitPrice = $this->sumColumn("getUnitPrice", $calculatedPrices);
+        $totalPrice = $this->sumColumn("getTotalPrice", $calculatedPrices);
 
         //set simple price
-        $product->setCalculatedPrice(new CalculatedPrice(
-            $this->sumColumn("getUnitPrice", $calculatedPrices),
-            $this->sumColumn("getTotalPrice", $calculatedPrices),
-            $calculatedTaxes,
-            $calculatedTaxRules
-        ));
+        // custom field remains in product json after uninstall -> check needed.
+        if ($unitPrice !== 0) {
+            $product->setCalculatedPrice(new CalculatedPrice(
+                $unitPrice,
+                $totalPrice,
+                $calculatedTaxes,
+                $calculatedTaxRules
+            ));
+        }
+
 
     }
 

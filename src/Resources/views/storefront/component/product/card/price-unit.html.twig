@@ -6,7 +6,6 @@
             {{ product.calculatedPrice.unitPrice|currency }}{{ "general.star"|trans|sw_sanitize }}{{ "general.star"|trans|sw_sanitize }}
         </p>
         {{ dump(product.calculatedPrice) }}
-        {{ dump(product.extensions['set-products']) }}
     {% else %}
         {{ parent() }}
     {% endif %}
