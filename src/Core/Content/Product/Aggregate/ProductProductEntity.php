@@ -12,7 +12,7 @@ class ProductProductEntity extends Entity
     use EntityIdTrait;
 
     /**
-     * @var string
+     * @var int
      */
     protected $quantity;
 
@@ -59,17 +59,17 @@ class ProductProductEntity extends Entity
     }
 
     /**
-     * @return string
+     * @return int
      */
-    public function getQuantity(): string
+    public function getQuantity(): int
     {
         return $this->quantity;
     }
 
     /**
-     * @param string $quantity
+     * @param int $quantity
      */
-    public function setQuantity(string $quantity): void
+    public function setQuantity(string $quantity): int
     {
         $this->quantity = $quantity;
     }

@@ -3,14 +3,11 @@
 namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
+use Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator;
 use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
-use Shopware\Core\Checkout\Cart\Tax\Struct\CalculatedTaxCollection;
-use Shopware\Core\Content\Product\Aggregate\ProductPrice\ProductPriceCollection;
-use Shopware\Core\Content\Product\Events\ProductListingCriteriaEvent;
+use Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
-use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
-use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\System\SalesChannel\Entity\SalesChannelEntityLoadedEvent;
@@ -26,27 +23,34 @@ class ProductListingSubscriber implements EventSubscriberInterface
     private $productProductRepository;
 
     /**
-     * @param EntityRepositoryInterface $productProductRepository
+     * @var QuantityPriceCalculator
      */
+    private $priceCalculator;
 
-    public function __construct(EntityRepositoryInterface $productProductRepository)
+    /**
+     * @var ProductPriceDefinitionBuilderInterface
+     */
+    private $priceDefinitionBuilder;
+
+    /**
+     * ProductListingSubscriber constructor.
+     * @param EntityRepositoryInterface $productProductRepository
+     * @param QuantityPriceCalculator $priceCalculator
+     * @param ProductPriceDefinitionBuilderInterface $priceDefinitionBuilder
+     */
+    public function __construct(EntityRepositoryInterface $productProductRepository, QuantityPriceCalculator $priceCalculator, ProductPriceDefinitionBuilderInterface $priceDefinitionBuilder)
     {
         $this->productProductRepository = $productProductRepository;
+        $this->priceCalculator = $priceCalculator;
+        $this->priceDefinitionBuilder = $priceDefinitionBuilder;
     }
 
     public static function getSubscribedEvents(): array
     {
         return [
-            ProductListingCriteriaEvent::class => 'enrichCriteria',
             'sales_channel.product.loaded' => 'salesChannelProductLoaded',
         ];
     }
-
-    public function enrichCriteria(ProductListingCriteriaEvent $event) {
-        $criteria = $event->getCriteria();
-        $criteria->addAssociation('products');
-    }
-
 
     public function salesChannelProductLoaded(SalesChannelEntityLoadedEvent $event)
     {
@@ -66,59 +70,45 @@ class ProductListingSubscriber implements EventSubscriberInterface
 
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('setProductId', $productId));
-        $criteria->addAssociation('product.price');
-
+        $criteria->addAssociation('product');
 
         $result = $this->productProductRepository->search($criteria, $context->getContext());
 
 
-
-        $mapped = new EntityCollection();
+        $calculatedPrices = [];
         /** @var ProductProductEntity $pp */
         foreach ($result as $pp) {
-            $mapped->add($pp->getProduct());
+            $prices = $this->priceDefinitionBuilder->build($pp->getProduct(), $context);
+            $calculatedPrice = $this->priceCalculator->calculate($prices->getPrice(), $context);
+            $calculatedPrices[] = [
+                'quantity' => $pp->getQuantity(),
+                'calculatedPrice' => $calculatedPrice
+            ];
         }
 
-        // ovveride simple price
-        $product->setCalculatedPrice();
-
-//        $mapped = $result->map(function (ProductProductEntity $product){
-//                 return $product->getProduct();
-//        });
-
-//        $prices = $result->map(function(ProductProductEntity $pp) {
-//            return $pp->getProduct();
-//        });
-
-        $product->addExtension('set-products', $mapped);
+        $calculatedTaxes = $product->getCalculatedPrice()->getCalculatedTaxes();
+        $calculatedTaxRules = $product->getCalculatedPrice()->getTaxRules();
 
 
 
-//        $product->setCalculatedPrice(new CalculatedPrice(3,3,3,3));
+        //set simple price
+        $product->setCalculatedPrice(new CalculatedPrice(
+            $this->sumColumn("getUnitPrice", $calculatedPrices),
+            $this->sumColumn("getTotalPrice", $calculatedPrices),
+            $calculatedTaxes,
+            $calculatedTaxRules
+        ));
 
-//        $prices = $this->map(function     (CalculatedPrice $price) {
-//            return $price->getUnitPrice();
-//        });
-
-//        throw new ErrorException(strval(array_sum($prices)) );
-
-//        return array_sum($prices);
-
-
-//        $price = $result->getPrices()->sum();
-//        $product->setPrice($result->getPrices()->sum());
-
-        // no Impact
-//        $product->setCalculatedPrice(new CalculatedPrice(
-//            99, 99,  new CalculatedTaxCollection([]), $context->buildTaxRules($product->getTaxId())));
-
-//        $psroduct->getPrice(
-
-//        $product->setName('This is a Set Product');
-//                $product->setTranslated(['name' => 'This is a Set Product']);
-
-//        $translations = $product->getTranslated();
-//        $translations['name'] = 'this is a set products';
-//        $product->setTranslated($translations);
     }
+
+    private function sumColumn(string $columnNameMethod, array $array)
+    {
+        /** @var CalculatedPrice $price */
+        return array_reduce($array, function (float $acc, array $price) use ($columnNameMethod) {
+            $acc += call_user_func([$price['calculatedPrice'], $columnNameMethod]) * $price['quantity'];
+            return $acc;
+        }, 0);
+    }
+
+
 }

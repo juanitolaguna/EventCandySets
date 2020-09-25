@@ -29,6 +29,8 @@
 
         <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">
             <argument type="service" id="ec_product_product.repository"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>
+            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 
