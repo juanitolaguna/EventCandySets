@@ -14,13 +14,22 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\ManyToOneAssociationField
 use Shopware\Core\Framework\DataAbstractionLayer\Field\ReferenceVersionField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\UpdatedAtField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
-use Shopware\Core\Framework\DataAbstractionLayer\MappingEntityDefinition;
 
 class ProductProductDefinition extends EntityDefinition
 {
     public function getEntityName(): string
     {
         return 'ec_product_product';
+    }
+
+    public function getCollectionClass(): string
+    {
+        return ProductProductCollection::class;
+    }
+
+    public function getEntityClass(): string
+    {
+        return ProductProductEntity::class;
     }
 
     protected function defineFields(): FieldCollection

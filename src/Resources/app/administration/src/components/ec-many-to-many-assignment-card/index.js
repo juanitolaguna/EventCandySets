@@ -198,7 +198,8 @@ Component.register('ec-many-to-many-assignment-card', {
         },
 
         getGrossPrice() {
-            return this.gridData.reduce((total, start) => total +  start.product.price[0].gross, 0);
+            const price = this.gridData.reduce((total, start) => total +  (start.product.price[0].gross * start.quantity) , 0);
+            return Number(price.toFixed(2));
         },
     },
     watch: {

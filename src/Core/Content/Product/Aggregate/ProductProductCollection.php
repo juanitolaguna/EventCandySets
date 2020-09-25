@@ -3,6 +3,7 @@
 namespace EventCandy\Sets\Core\Content\Product\Aggregate;
 
 use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
 
 /**
  * @method void              add(ProductProductEntity $entity)

@@ -27,6 +27,11 @@
             <tag name="shopware.entity.definition" entity="ec_product_product"/>
         </service>
 
+        <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">
+            <argument type="service" id="ec_product_product.repository"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <!-- Commands  -->
         <service id="EventCandy\Sets\Commands\EcsCommands">
             <argument type="service" id="product.repository"/>
