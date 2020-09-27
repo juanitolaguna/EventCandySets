@@ -2,9 +2,15 @@
 
 namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
+use ErrorException;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
+use Shopware\Core\Checkout\Cart\Event\LineItemAddedEvent;
 use Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator;
 use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
+use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
+use Shopware\Core\Checkout\Cart\Price\Struct\ReferencePrice;
+use Shopware\Core\Checkout\Cart\Tax\Struct\CalculatedTaxCollection;
+use Shopware\Core\Checkout\Cart\Tax\Struct\TaxRuleCollection;
 use Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
@@ -48,7 +54,7 @@ class ProductListingSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            'sales_channel.product.loaded' => 'salesChannelProductLoaded',
+            'sales_channel.product.loaded' => 'salesChannelProductLoaded'
         ];
     }
 

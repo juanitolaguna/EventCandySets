@@ -26,6 +26,21 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
+        <service id="EventCandy\Sets\Core\Checkout\Cart\SetProductProcessor">
+            <argument type="service" id="logger"/>
+<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\PercentagePriceCalculator"/>&ndash;&gt;-->
+<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\AbsolutePriceCalculator"/>&ndash;&gt;-->
+<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>&ndash;&gt;-->
+<!--&lt;!&ndash;            <argument type="service" id="media.repository"/>&ndash;&gt;-->
+<!--&lt;!&ndash;            <argument type="service" id="product.repository"/>&ndash;&gt;-->
+<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>&ndash;&gt;-->
+
+            <!-- inject before product processor (5000) -->
+            <tag name="shopware.cart.processor" priority="7000"/>
+            <tag name="shopware.cart.collector" priority="7000"/>
+        </service>
+
+
         <!-- Commands  -->
         <service id="EventCandy\Sets\Commands\EcsCommands">
             <argument type="service" id="product.repository"/>
