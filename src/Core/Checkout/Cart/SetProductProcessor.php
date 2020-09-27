@@ -31,7 +31,6 @@ class SetProductProcessor implements CartProcessorInterface, CartDataCollectorIn
     public function collect(CartDataCollection $data, Cart $original, SalesChannelContext $context, CartBehavior $behavior): void
     {
         $this->logger->log(100, 'SetProductProcessor collect');
-        $lineItems = $original->get
 
         // TODO: Implement collect() method.
     }
