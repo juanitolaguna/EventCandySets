@@ -5,7 +5,6 @@
         <p class="product-price{% if listPrice.percentage > 0 %} with-list-price{% endif %}">
             {{ product.calculatedPrice.unitPrice|currency }}{{ "general.star"|trans|sw_sanitize }}{{ "general.star"|trans|sw_sanitize }}
         </p>
-        {{ dump(product.calculatedPrice) }}
     {% else %}
         {{ parent() }}
     {% endif %}
