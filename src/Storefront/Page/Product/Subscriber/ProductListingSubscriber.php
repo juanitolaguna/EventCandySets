@@ -20,6 +20,13 @@ use Shopware\Core\System\SalesChannel\Entity\SalesChannelEntityLoadedEvent;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
+
+/**
+ * Class ProductListingSubscriber
+ * @package EventCandy\Sets\Storefront\Page\Product\Subscriber
+ * Calculates price before product is loaded in Storefront.
+ * Subscriber is deactivated in Services.
+ */
 class ProductListingSubscriber implements EventSubscriberInterface
 {
 

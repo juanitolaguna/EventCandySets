@@ -19,12 +19,13 @@
             <tag name="shopware.entity.definition" entity="ec_product_product"/>
         </service>
 
-        <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">
-            <argument type="service" id="ec_product_product.repository"/>
-            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>
-            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>
-            <tag name="kernel.event_subscriber"/>
-        </service>
+<!--        Calculates Set Prices before Product is loaded to Storefront -->
+<!--        <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">-->
+<!--            <argument type="service" id="ec_product_product.repository"/>-->
+<!--            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>-->
+<!--            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>-->
+<!--            <tag name="kernel.event_subscriber"/>-->
+<!--        </service>-->
 
         <service id="EventCandy\Sets\Core\Checkout\Cart\SetProductProcessor">
             <argument type="service" id="logger"/>

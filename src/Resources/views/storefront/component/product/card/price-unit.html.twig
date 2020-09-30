@@ -2,9 +2,8 @@
 
 {% block component_product_box_price %}
     {% if product.customFields and product.customFields['ec_is_set'] %}
-        <p class="product-price{% if listPrice.percentage > 0 %} with-list-price{% endif %}">
-            {{ product.calculatedPrice.unitPrice|currency }}{{ "general.star"|trans|sw_sanitize }}{{ "general.star"|trans|sw_sanitize }}
-        </p>
+        {{ parent() }}
+        <span>(* Stückliste)</span>
     {% else %}
         {{ parent() }}
     {% endif %}
