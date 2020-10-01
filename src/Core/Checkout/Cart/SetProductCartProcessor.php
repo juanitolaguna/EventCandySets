@@ -2,6 +2,7 @@
 
 namespace EventCandy\Sets\Core\Checkout\Cart;
 
+use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
@@ -24,6 +25,7 @@ use Shopware\Core\Content\Product\Cart\PurchaseStepsError;
 use Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Defaults;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 class SetProductCartProcessor implements CartProcessorInterface, CartDataCollectorInterface
@@ -61,6 +63,11 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
     private $featureBuilder;
 
     /**
+     * @var Connection
+     */
+    private $connection;
+
+    /**
      * @var LoggerInterface
      */
     private $logger;
@@ -70,12 +77,14 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         QuantityPriceCalculator $calculator,
         ProductPriceDefinitionBuilderInterface $priceDefinitionBuilder,
         ProductFeatureBuilder $featureBuilder,
+        Connection $connection,
         LoggerInterface $logger
     ) {
         $this->productGateway = $productGateway;
         $this->priceDefinitionBuilder = $priceDefinitionBuilder;
         $this->calculator = $calculator;
         $this->featureBuilder = $featureBuilder;
+        $this->connection = $connection;
         $this->logger = $logger;
     }
 
@@ -109,9 +118,33 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         foreach ($lineItems as $lineItem) {
             // enrich all products in original cart
             $this->enrich($original, $lineItem, $data, $context, $behavior);
+
+            $this->addRelatedProductsToPayload($lineItem);
         }
 
         $this->featureBuilder->prepare($lineItems, $data, $context);
+    }
+
+    private function addRelatedProductsToPayload(LineItem $lineItem)
+    {
+        $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
+                    where pp.set_product_id = :id;';
+
+        $rows = $this->connection->fetchAll(
+            $sqlSetProducts,
+            ['id' => Uuid::fromHexToBytes($lineItem->getReferencedId())]
+        );
+
+        $setProducts = [];
+        foreach ($rows as $row) {
+            $setProducts[] = [
+                'product_id' => Uuid::fromBytesToHex($row['product_id']),
+                'product_version_id' => Uuid::fromBytesToHex($row['product_version_id']),
+                'quantity' => $row['quantity']
+            ];
+        }
+
+        $lineItem->setPayload(['setproducts' => $setProducts]);
     }
 
     /**

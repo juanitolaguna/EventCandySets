@@ -33,6 +33,7 @@
             <argument type="service"
                       id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>
             <argument type="service" id="Shopware\Core\Content\Product\Cart\ProductFeatureBuilder"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
             <argument type="service" id="logger"/>
 
             <!-- inject before product processor (5000) -->
@@ -51,8 +52,14 @@
             <argument type="service" id="Shopware\Core\Content\Product\ProductDefinition"/>
             <argument type="service" id="Shopware\Core\Framework\Adapter\Cache\CacheClearer"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator"/>
+            <argument type="service" id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdaterRelatedProducts"/>
             <argument type="service" id="logger"/>
             <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdaterRelatedProducts">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="logger"/>
         </service>
 
 

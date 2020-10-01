@@ -56,12 +56,18 @@ class StockUpdater implements EventSubscriberInterface
      */
     private $logger;
 
+    /**
+     * @var StockUpdaterRelatedProducts
+     */
+    private $relatedProducts;
+
 
     public function __construct(
         Connection $connection,
         ProductDefinition $definition,
         CacheClearer $cache,
         EntityCacheKeyGenerator $cacheKeyGenerator,
+        StockUpdaterRelatedProducts $relatedProducts,
         LoggerInterface $logger
     )
     {
@@ -69,6 +75,7 @@ class StockUpdater implements EventSubscriberInterface
         $this->definition = $definition;
         $this->cache = $cache;
         $this->cacheKeyGenerator = $cacheKeyGenerator;
+        $this->relatedProducts = $relatedProducts;
         $this->logger = $logger;
     }
 
@@ -88,6 +95,7 @@ class StockUpdater implements EventSubscriberInterface
 
     public function triggerChangeSet(PreWriteValidationEvent $event): void
     {
+
         $this->logger->log(100, 'StockUpdater->triggerChangeSet');
 
         if ($event->getContext()->getVersionId() !== Defaults::LIVE_VERSION) {
@@ -104,11 +112,13 @@ class StockUpdater implements EventSubscriberInterface
             }
             if ($command instanceof DeleteCommand) {
                 $command->requestChangeSet();
+                $this->logger->log(100, 'StockUpdater->triggerChangeSet:requestChangeSet instanceOf DeleteCommand');
 
                 continue;
             }
             if ($command->hasField('referenced_id') || $command->hasField('product_id') || $command->hasField('quantity')) {
                 $command->requestChangeSet();
+                $this->logger->log(100, 'StockUpdater->triggerChangeSet:requestChangeSet has ref || prod || quantity');
 
                 continue;
             }
@@ -120,7 +130,6 @@ class StockUpdater implements EventSubscriberInterface
      */
     public function lineItemWritten(EntityWrittenEvent $event): void
     {
-        $this->logger->log(100, 'StockUpdater->lineItemWritten');
         $ids = [];
 
         foreach ($event->getWriteResults() as $result) {
@@ -153,6 +162,8 @@ class StockUpdater implements EventSubscriberInterface
             return;
         }
 
+        $this->logger->log(100, 'StockUpdater->lineItemWritten:ids: ' . print_r($ids, true));
+        // ToDo: when is this update triggered?
         $this->update($ids, $event->getContext());
 
         $this->clearCache($ids);
@@ -170,18 +181,24 @@ class StockUpdater implements EventSubscriberInterface
         }
 
         if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_COMPLETED) {
+            $this->logger->log(100, 'StockUpdater->stateChanged:decreaseStock' );
             $this->decreaseStock($event);
+
+            //decrease stock
 
             return;
         }
 
         if ($event->getFromPlace()->getTechnicalName() === OrderStates::STATE_COMPLETED) {
+            $this->logger->log(100, 'StockUpdater->stateChanged:increaseStock' );
             $this->increaseStock($event);
+            // increase available
 
             return;
         }
 
-        if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED || $event->getFromPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED) {
+        // increase available stock on cancel
+        if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED) {
             $products = $this->getProductsOfOrder($event->getEntityId());
 
             $ids = array_column($products, 'referenced_id');
@@ -189,6 +206,28 @@ class StockUpdater implements EventSubscriberInterface
             $this->updateAvailableStock($ids, $event->getContext());
 
             $this->updateAvailableFlag($ids, $event->getContext());
+
+            // ToDo: increase related Products availableStock
+            $this->relatedProducts->updateAvailableStockOnStateChange($products, +1);
+
+
+            $this->clearCache($ids);
+
+            return;
+        }
+
+        //decrease available stock on reopen
+        if ($event->getFromPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED) {
+            $products = $this->getProductsOfOrder($event->getEntityId());
+
+            $ids = array_column($products, 'referenced_id');
+
+            $this->updateAvailableStock($ids, $event->getContext());
+
+            $this->updateAvailableFlag($ids, $event->getContext());
+
+            // ToDo: decrease related Products availableStock
+            $this->relatedProducts->updateAvailableStockOnStateChange($products, -1);
 
             $this->clearCache($ids);
 
@@ -201,6 +240,7 @@ class StockUpdater implements EventSubscriberInterface
         if ($context->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
+        $this->logger->log(100, 'StockUpdater->update:ids: ' . print_r($ids, true));
 
         $this->updateAvailableStock($ids, $context);
 
@@ -218,6 +258,8 @@ class StockUpdater implements EventSubscriberInterface
             $ids[] = $lineItem->getReferencedId();
         }
 
+        $this->relatedProducts->updateRelatedProductsOnOrderPlaced($ids, $event->getContext());
+
         $this->update($ids, $event->getContext());
 
         $this->clearCache($ids);
@@ -225,30 +267,32 @@ class StockUpdater implements EventSubscriberInterface
 
     private function increaseStock(StateMachineTransitionEvent $event): void
     {
+        // type is filtered here
         $products = $this->getProductsOfOrder($event->getEntityId());
 
         $ids = array_column($products, 'referenced_id');
 
         $this->updateStock($products, +1);
 
-        $this->updateAvailableStock($ids, $event->getContext());
+//        $this->updateAvailableStock($ids, $event->getContext());
 
-        $this->updateAvailableFlag($ids, $event->getContext());
+//        $this->updateAvailableFlag($ids, $event->getContext());
 
         $this->clearCache($ids);
     }
 
     private function decreaseStock(StateMachineTransitionEvent $event): void
     {
+        // type is filtered here
         $products = $this->getProductsOfOrder($event->getEntityId());
 
         $ids = array_column($products, 'referenced_id');
 
         $this->updateStock($products, -1);
 
-        $this->updateAvailableStock($ids, $event->getContext());
+//        $this->updateAvailableStock($ids, $event->getContext());
 
-        $this->updateAvailableFlag($ids, $event->getContext());
+//        $this->updateAvailableFlag($ids, $event->getContext());
 
         $this->clearCache($ids);
     }
@@ -301,65 +345,6 @@ class StockUpdater implements EventSubscriberInterface
                 ]
             );
         });
-
-        $this->updateRelatedProductsAvailableStock($bytes, $context);
-    }
-
-    private function updateRelatedProductsAvailableStock(array $bytesIds, Context $context)
-    {
-
-
-        foreach ($bytesIds as $id) {
-            $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
-                    where pp.set_product_id = :id;';
-
-            $rows = $this->connection->fetchAll(
-                $sqlSetProducts,
-                ['id' => $id]
-            );
-
-            $setQuantity = 'select quantity from order_line_item
-                WHERE LOWER(order_line_item.referenced_id) = LOWER(HEX(:productId))
-                AND order_line_item.type = :orderType
-                AND order_line_item.version_id = :version;';
-
-
-            $quantity = $this->connection->fetchArray(
-                $setQuantity,
-                [
-                    'productId' => $id,
-                    'orderType' => self::TYPE,
-                    'version' => Uuid::fromHexToBytes($context->getVersionId())
-                ]
-            );
-
-            $this->updateRelatedProductsAvailableStockInnerLoop($rows, intval($quantity[0]));
-        }
-    }
-
-    private function updateRelatedProductsAvailableStockInnerLoop(array $rows, int $mainProductQuantity)
-    {
-        $sqlUpdateProducts = 'UPDATE product SET available_stock = (available_stock - (:quantity * :mainProductQuantity))
-                                 WHERE product.id = (:productId) AND product.version_id = :productVersionId;
-                             ';
-
-        foreach ($rows as $row) {
-            $productId = $row['product_id'];
-            $productVersionId = $row['product_version_id'];
-            $quantity = $row['quantity'];
-
-            RetryableQuery::retryable(function () use ($sqlUpdateProducts, $productId,  $productVersionId, $quantity, $mainProductQuantity): void {
-                $this->connection->executeUpdate(
-                    $sqlUpdateProducts,
-                    [
-                        'productId' => $productId,
-                        'productVersionId' => $productVersionId,
-                        'quantity' => $quantity,
-                        'mainProductQuantity' => $mainProductQuantity
-                    ]
-                );
-            });
-        }
     }
 
     private function updateAvailableFlag(array $ids, Context $context): void
@@ -414,7 +399,7 @@ class StockUpdater implements EventSubscriberInterface
     private function getProductsOfOrder(string $orderId): array
     {
         $query = $this->connection->createQueryBuilder();
-        $query->select(['referenced_id', 'quantity']);
+        $query->select(['referenced_id', 'quantity', 'payload']);
         $query->from('order_line_item');
         $query->andWhere('type = :type');
         $query->andWhere('order_id = :id');
