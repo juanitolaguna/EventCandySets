@@ -95,9 +95,6 @@ class StockUpdater implements EventSubscriberInterface
 
     public function triggerChangeSet(PreWriteValidationEvent $event): void
     {
-
-        $this->logger->log(100, 'StockUpdater->triggerChangeSet');
-
         if ($event->getContext()->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
@@ -112,14 +109,10 @@ class StockUpdater implements EventSubscriberInterface
             }
             if ($command instanceof DeleteCommand) {
                 $command->requestChangeSet();
-                $this->logger->log(100, 'StockUpdater->triggerChangeSet:requestChangeSet instanceOf DeleteCommand');
-
                 continue;
             }
             if ($command->hasField('referenced_id') || $command->hasField('product_id') || $command->hasField('quantity')) {
                 $command->requestChangeSet();
-                $this->logger->log(100, 'StockUpdater->triggerChangeSet:requestChangeSet has ref || prod || quantity');
-
                 continue;
             }
         }
@@ -162,7 +155,6 @@ class StockUpdater implements EventSubscriberInterface
             return;
         }
 
-        $this->logger->log(100, 'StockUpdater->lineItemWritten:ids: ' . print_r($ids, true));
         // ToDo: when is this update triggered?
         $this->update($ids, $event->getContext());
 
@@ -171,7 +163,6 @@ class StockUpdater implements EventSubscriberInterface
 
     public function stateChanged(StateMachineTransitionEvent $event): void
     {
-        $this->logger->log(100, 'StockUpdater->stateChanged');
         if ($event->getContext()->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
@@ -181,13 +172,11 @@ class StockUpdater implements EventSubscriberInterface
         }
 
         if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_COMPLETED) {
-            $this->logger->log(100, 'StockUpdater->stateChanged:decreaseStock' );
             $this->decreaseStock($event);
             return;
         }
 
         if ($event->getFromPlace()->getTechnicalName() === OrderStates::STATE_COMPLETED) {
-            $this->logger->log(100, 'StockUpdater->stateChanged:increaseStock' );
             $this->increaseStock($event);
             return;
         }
@@ -235,7 +224,6 @@ class StockUpdater implements EventSubscriberInterface
         if ($context->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
-        $this->logger->log(100, 'StockUpdater->update:ids: ' . print_r($ids, true));
 
         $this->updateAvailableStock($ids, $context);
 
@@ -244,7 +232,6 @@ class StockUpdater implements EventSubscriberInterface
 
     public function orderPlaced(CheckoutOrderPlacedEvent $event): void
     {
-        $this->logger->log(100, 'StockUpdater->orderPlaced');
         $ids = [];
         foreach ($event->getOrder()->getLineItems() as $lineItem) {
             if ($lineItem->getType() !== self::TYPE) {
@@ -291,9 +278,6 @@ class StockUpdater implements EventSubscriberInterface
     private function updateAvailableStock(array $ids, Context $context): void
     {
         $ids = array_filter(array_keys(array_flip($ids)));
-
-        $this->logger->log(100, 'StockUpdater->updateAvailableStock: ' . print_r($ids, true));
-
 
         if (empty($ids)) {
             return;

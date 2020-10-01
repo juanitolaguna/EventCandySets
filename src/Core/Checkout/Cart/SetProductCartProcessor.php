@@ -99,9 +99,10 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             ->filterFlatByType(self::TYPE);
 
         /** Debug */
-        if (count($lineItems) > 0) {
-            $this->logger->log(100, 'SetProductCartProcessor collect: ' . self::TYPE );
-        }
+//        if (count($lineItems) > 0) {
+//            $this->logger->log(100, 'SetProductCartProcessor collect: ' . self::TYPE );
+//        }
+
         // find products in original cart which requires data from gateway
         $ids = $this->getNotCompleted($data, $lineItems);
 
@@ -164,9 +165,9 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             ->filterType(self::TYPE);
 
         /** Debug */
-        if (count($lineItems->getElements()) > 0) {
-            $this->logger->log(100, 'SetProductCartProcessor process: ' . self::TYPE );
-        }
+//        if (count($lineItems->getElements()) > 0) {
+//            $this->logger->log(100, 'SetProductCartProcessor process: ' . self::TYPE );
+//        }
 
         /** @var LineItem $lineItem */
         foreach ($lineItems as $lineItem) {
