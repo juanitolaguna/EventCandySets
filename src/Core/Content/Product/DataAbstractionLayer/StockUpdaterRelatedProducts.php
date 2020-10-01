@@ -3,6 +3,7 @@
 namespace EventCandy\Sets\Core\Content\Product\DataAbstractionLayer;
 
 use Doctrine\DBAL\Connection;
+use ErrorException;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
@@ -92,12 +93,19 @@ class StockUpdaterRelatedProducts
         }
     }
 
-    public function updateAvailableStockOnStateChange(array $lineItems, int $multiplier)
+    public function updateStockOnStateChange(array $lineItems, int $multiplier, string $stockType)
     {
+        if ($stockType == 'available_stock') {
+            $sqlUpdateProducts = 'UPDATE product SET available_stock = (available_stock + (:quantity))
+                                 WHERE product.id = (:productId) AND product.version_id = :productVersionId;';
+        } elseif ($stockType == 'stock') {
+            $sqlUpdateProducts = 'UPDATE product SET stock = (stock + (:quantity))
+                                 WHERE product.id = (:productId) AND product.version_id = :productVersionId;';
+        } else {
+            throw new ErrorException('Wrong table type: ' . $stockType);
+        }
 
-        $sqlUpdateProducts = 'UPDATE product SET available_stock = (available_stock + (:quantity))
-                                 WHERE product.id = (:productId) AND product.version_id = :productVersionId;
-                             ';
+
 
         foreach ($lineItems as $lineItem) {
             $payload = json_decode($lineItem['payload'], true);
@@ -119,21 +127,8 @@ class StockUpdaterRelatedProducts
                         ]
                     );
                 });
-
-//                $this->logger->log(100, '$subProduct : '
-//                    . $lineItemQuantity . ' '
-//                    . $lineItemSetProductId . ' '
-//                    . $quantity . ' '
-//                    . $product_id . ' '
-//                    . $product_version_id . ' '
-//                );
-
             }
-
-
-
         }
     }
-
 
 }

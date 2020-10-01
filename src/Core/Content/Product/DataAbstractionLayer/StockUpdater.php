@@ -183,17 +183,12 @@ class StockUpdater implements EventSubscriberInterface
         if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_COMPLETED) {
             $this->logger->log(100, 'StockUpdater->stateChanged:decreaseStock' );
             $this->decreaseStock($event);
-
-            //decrease stock
-
             return;
         }
 
         if ($event->getFromPlace()->getTechnicalName() === OrderStates::STATE_COMPLETED) {
             $this->logger->log(100, 'StockUpdater->stateChanged:increaseStock' );
             $this->increaseStock($event);
-            // increase available
-
             return;
         }
 
@@ -208,7 +203,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->updateAvailableFlag($ids, $event->getContext());
 
             // ToDo: increase related Products availableStock
-            $this->relatedProducts->updateAvailableStockOnStateChange($products, +1);
+            $this->relatedProducts->updateStockOnStateChange($products, +1, 'available_stock');
 
 
             $this->clearCache($ids);
@@ -227,7 +222,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->updateAvailableFlag($ids, $event->getContext());
 
             // ToDo: decrease related Products availableStock
-            $this->relatedProducts->updateAvailableStockOnStateChange($products, -1);
+            $this->relatedProducts->updateAvailableOnStateChange($products, -1, 'available_stock');
 
             $this->clearCache($ids);
 
@@ -274,9 +269,7 @@ class StockUpdater implements EventSubscriberInterface
 
         $this->updateStock($products, +1);
 
-//        $this->updateAvailableStock($ids, $event->getContext());
-
-//        $this->updateAvailableFlag($ids, $event->getContext());
+        $this->relatedProducts->updateStockOnStateChange($products, +1, 'stock');
 
         $this->clearCache($ids);
     }
@@ -290,9 +283,7 @@ class StockUpdater implements EventSubscriberInterface
 
         $this->updateStock($products, -1);
 
-//        $this->updateAvailableStock($ids, $event->getContext());
-
-//        $this->updateAvailableFlag($ids, $event->getContext());
+        $this->relatedProducts->updateStockOnStateChange($products, -1, 'stock');
 
         $this->clearCache($ids);
     }
