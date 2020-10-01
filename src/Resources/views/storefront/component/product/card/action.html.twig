@@ -1,0 +1,36 @@
+{% sw_extends '@Storefront/storefront/component/product/card/action.html.twig' %}
+
+
+{% block page_product_detail_buy_product_buy_info %}
+    <input type="hidden"
+           name="lineItems[{{ id }}][id]"
+           value="{{ id }}">
+    <input type="hidden"
+           name="lineItems[{{ id }}][referencedId]"
+           value="{{ id }}">
+
+
+    {% if product.customFields and product.customFields['ec_is_set'] %}
+        <input type="hidden"
+               name="lineItems[{{ id }}][type]"
+               value="setproduct">
+    {% else %}
+        <input type="hidden"
+               name="lineItems[{{ id }}][type]"
+               value="product">
+    {% endif %}
+
+    <input type="hidden"
+           name="lineItems[{{ id }}][type]"
+           value="setproduct">
+
+    <input type="hidden"
+           name="lineItems[{{ id }}][stackable]"
+           value="1">
+    <input type="hidden"
+           name="lineItems[{{ id }}][removable]"
+           value="1">
+    <input type="hidden"
+           name="lineItems[{{ id }}][quantity]"
+           value="{{ product.minPurchase }}">
+{% endblock %}

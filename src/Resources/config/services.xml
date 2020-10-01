@@ -19,26 +19,40 @@
             <tag name="shopware.entity.definition" entity="ec_product_product"/>
         </service>
 
-<!--        Calculates Set Prices before Product is loaded to Storefront -->
-<!--        <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">-->
-<!--            <argument type="service" id="ec_product_product.repository"/>-->
-<!--            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>-->
-<!--            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>-->
-<!--            <tag name="kernel.event_subscriber"/>-->
-<!--        </service>-->
+        <!--        Calculates Set Prices before Product is loaded to Storefront -->
+        <!--        <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">-->
+        <!--            <argument type="service" id="ec_product_product.repository"/>-->
+        <!--            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>-->
+        <!--            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>-->
+        <!--            <tag name="kernel.event_subscriber"/>-->
+        <!--        </service>-->
 
-        <service id="EventCandy\Sets\Core\Checkout\Cart\SetProductProcessor">
+        <service id="EventCandy\Sets\Core\Checkout\Cart\SetProductCartProcessor">
+            <argument type="service" id="Shopware\Core\Content\Product\Cart\ProductGateway"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>
+            <argument type="service"
+                      id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>
+            <argument type="service" id="Shopware\Core\Content\Product\Cart\ProductFeatureBuilder"/>
             <argument type="service" id="logger"/>
-<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\PercentagePriceCalculator"/>&ndash;&gt;-->
-<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\AbsolutePriceCalculator"/>&ndash;&gt;-->
-<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>&ndash;&gt;-->
-<!--&lt;!&ndash;            <argument type="service" id="media.repository"/>&ndash;&gt;-->
-<!--&lt;!&ndash;            <argument type="service" id="product.repository"/>&ndash;&gt;-->
-<!--&lt;!&ndash;            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>&ndash;&gt;-->
 
             <!-- inject before product processor (5000) -->
             <tag name="shopware.cart.processor" priority="7000"/>
             <tag name="shopware.cart.collector" priority="7000"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Checkout\Cart\LineItemFactoryHandler\SetProductLineItemFactory">
+            <argument type="service" id="Shopware\Core\Checkout\Cart\PriceDefinitionFactory"/>
+            <tag name="shopware.cart.line_item.factory"/>
+        </service>
+
+        <!-- Subscribers -->
+        <service id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdater">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="Shopware\Core\Content\Product\ProductDefinition"/>
+            <argument type="service" id="Shopware\Core\Framework\Adapter\Cache\CacheClearer"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator"/>
+            <argument type="service" id="logger"/>
+            <tag name="kernel.event_subscriber"/>
         </service>
 
 
