@@ -95,6 +95,7 @@ class StockUpdater implements EventSubscriberInterface
 
     public function triggerChangeSet(PreWriteValidationEvent $event): void
     {
+        $this->logger->log(100, 'triggeChangeSet: ' . self::TYPE);
         if ($event->getContext()->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
@@ -211,7 +212,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->updateAvailableFlag($ids, $event->getContext());
 
             // ToDo: decrease related Products availableStock
-            $this->relatedProducts->updateAvailableOnStateChange($products, -1, 'available_stock');
+            $this->relatedProducts->updateStockOnStateChange($products, -1, 'available_stock');
 
             $this->clearCache($ids);
 

@@ -112,7 +112,7 @@ class StockUpdaterRelatedProducts
             $lineItemQuantity = $lineItem['quantity'];
             $lineItemSetProductId = $lineItem['referenced_id'];
 
-            foreach ($payload['setproducts'] as $subProduct) {
+            foreach ($payload[self::TYPE] as $subProduct) {
                 $quantity = $subProduct['quantity'];
                 $product_id = $subProduct['product_id'];
                 $product_version_id = $subProduct['product_version_id'];
