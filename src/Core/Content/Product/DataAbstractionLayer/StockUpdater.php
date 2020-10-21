@@ -233,6 +233,7 @@ class StockUpdater implements EventSubscriberInterface
 
     public function orderPlaced(CheckoutOrderPlacedEvent $event): void
     {
+        $this->logger->log(100, 'orderPlaced: ' . self::TYPE);
         $ids = [];
         foreach ($event->getOrder()->getLineItems() as $lineItem) {
             if ($lineItem->getType() !== self::TYPE) {
@@ -240,6 +241,8 @@ class StockUpdater implements EventSubscriberInterface
             }
             $ids[] = $lineItem->getReferencedId();
         }
+
+
 
         $this->relatedProducts->updateRelatedProductsOnOrderPlaced($ids, $event->getContext());
 

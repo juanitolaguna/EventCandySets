@@ -64,6 +64,9 @@ class StockUpdaterRelatedProducts
                 ]
             );
 
+            $this->logger->log(100, 'updateRelatedProductsOnOrderPlaced:rows ' . print_r($rows, TRUE)) ;
+            $this->logger->log(100, 'updateRelatedProductsOnOrderPlaced:quantity ' . print_r(intval($quantity[0]), TRUE)) ;
+
             $this->updateRelatedProductsAvailableStockInnerLoop($rows, intval($quantity[0]));
         }
     }
@@ -75,6 +78,7 @@ class StockUpdaterRelatedProducts
                              ';
 
         foreach ($rows as $row) {
+            // Todo
             $productId = $row['product_id'];
             $productVersionId = $row['product_version_id'];
             $quantity = $row['quantity'];
