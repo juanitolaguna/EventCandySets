@@ -5,6 +5,7 @@ namespace EventCandy\Sets\Core\Content\Product\DataAbstractionLayer;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Cart\Event\CheckoutOrderPlacedEvent;
+use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemDefinition;
 use Shopware\Core\Checkout\Order\OrderEvents;
 use Shopware\Core\Checkout\Order\OrderStates;
@@ -29,7 +30,10 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class StockUpdater implements EventSubscriberInterface
 {
 
-    public const TYPE = 'setproduct';
+    /**
+     * @var string
+     */
+    private $type;
 
     /**
      * @var Connection
@@ -68,7 +72,8 @@ class StockUpdater implements EventSubscriberInterface
         CacheClearer $cache,
         EntityCacheKeyGenerator $cacheKeyGenerator,
         StockUpdaterRelatedProducts $relatedProducts,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        string $type
     )
     {
         $this->connection = $connection;
@@ -77,6 +82,7 @@ class StockUpdater implements EventSubscriberInterface
         $this->cacheKeyGenerator = $cacheKeyGenerator;
         $this->relatedProducts = $relatedProducts;
         $this->logger = $logger;
+        $this->type = $type;
     }
 
     /**
@@ -95,7 +101,7 @@ class StockUpdater implements EventSubscriberInterface
 
     public function triggerChangeSet(PreWriteValidationEvent $event): void
     {
-        $this->logger->log(100, 'triggeChangeSet: ' . self::TYPE);
+        $this->logger->log(100, 'triggeChangeSet: ' . $this->type);
         if ($event->getContext()->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
@@ -138,7 +144,7 @@ class StockUpdater implements EventSubscriberInterface
 
             $type = $changeSet->getBefore('type');
 
-            if ($type !== self::TYPE) {
+            if ($type !== $this->type) {
                 continue;
             }
 
@@ -233,22 +239,33 @@ class StockUpdater implements EventSubscriberInterface
 
     public function orderPlaced(CheckoutOrderPlacedEvent $event): void
     {
-        $this->logger->log(100, 'orderPlaced: ' . self::TYPE);
+        $this->logger->log(100, 'orderPlaced: ' . $this->type);
+        $refIds = [];
         $ids = [];
+
+        /** @var LineItem $lineItem */
         foreach ($event->getOrder()->getLineItems() as $lineItem) {
-            if ($lineItem->getType() !== self::TYPE) {
+            if ($lineItem->getType() !== $this->type) {
                 continue;
             }
-            $ids[] = $lineItem->getReferencedId();
+            $refId = $lineItem->getReferencedId();
+
+            $refIds[] = $refId;
+
+            // get lineItem ids and the referenced products for advanced stock calculation
+            $ids[] = [
+                'id' => $lineItem->getId(),
+                'referencedId' => $refId
+            ];
+
+
         }
-
-
 
         $this->relatedProducts->updateRelatedProductsOnOrderPlaced($ids, $event->getContext());
 
-        $this->update($ids, $event->getContext());
+        $this->update($refIds, $event->getContext());
 
-        $this->clearCache($ids);
+        $this->clearCache($refIds);
     }
 
     private function increaseStock(StateMachineTransitionEvent $event): void
@@ -313,7 +330,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->connection->executeUpdate(
                 $sql,
                 [
-                    'type' => self::TYPE,
+                    'type' => $this->type,
                     'version' => Uuid::fromHexToBytes($context->getVersionId()),
                     'states' => [OrderStates::STATE_COMPLETED, OrderStates::STATE_CANCELLED],
                     'ids' => $bytes,
@@ -385,7 +402,7 @@ class StockUpdater implements EventSubscriberInterface
         $query->andWhere('version_id = :version');
         $query->setParameter('id', Uuid::fromHexToBytes($orderId));
         $query->setParameter('version', Uuid::fromHexToBytes(Defaults::LIVE_VERSION));
-        $query->setParameter('type', self::TYPE);
+        $query->setParameter('type', $this->type);
 
         return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
     }

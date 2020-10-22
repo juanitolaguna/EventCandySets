@@ -47,19 +47,24 @@
         </service>
 
         <!-- Subscribers -->
-        <service id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdater">
+        <service id="ec.stock-updater" class="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdater">
             <argument type="service" id="Doctrine\DBAL\Connection"/>
             <argument type="service" id="Shopware\Core\Content\Product\ProductDefinition"/>
             <argument type="service" id="Shopware\Core\Framework\Adapter\Cache\CacheClearer"/>
             <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator"/>
-            <argument type="service" id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdaterRelatedProducts"/>
+            <argument type="service" id="ec.stock-updater-related"/>
             <argument type="service" id="logger"/>
+            <argument type="string">setproduct</argument>
             <tag name="kernel.event_subscriber"/>
         </service>
 
-        <service id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdaterRelatedProducts">
+        <service id="ec.stock-updater-related" class="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\StockUpdaterRelatedProducts">
             <argument type="service" id="Doctrine\DBAL\Connection"/>
             <argument type="service" id="logger"/>
+            <argument type="service" id="Shopware\Core\Content\Product\ProductDefinition"/>
+            <argument type="service" id="Shopware\Core\Framework\Adapter\Cache\CacheClearer"/>
+            <argument type="service" id="Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator"/>
+            <argument type="string">setproduct</argument>
         </service>
 
 
