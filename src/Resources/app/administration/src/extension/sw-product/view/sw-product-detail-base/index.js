@@ -69,10 +69,7 @@ Component.override('sw-product-detail-base', {
             criteria.addFilter(Criteria.equals('productId', this.product.id));
             criteria.addAssociation('setProduct');
 
-            console.log('productId: ' + this.product.id);
-
             this.setProductRepository.search(criteria, Context.api).then((result) => {
-                console.log('result.total: ' + result.total)
                 if (result.total > 0) {
                     this.belongsToSetList = result;
                     this.belongsToSet = true;

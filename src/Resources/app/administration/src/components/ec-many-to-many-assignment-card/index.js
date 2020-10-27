@@ -351,7 +351,7 @@ Component.register('ec-many-to-many-assignment-card', {
                 this.selectedIds.push(item.id);
                 // make dropdown removal work instantly. Which is based on grid data.
                 this.paginateGrid();
-                this.$emit('item-select-add', item);x
+                this.$emit('item-select-add', item);
             });
         },
 
