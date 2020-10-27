@@ -17,6 +17,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityWriteResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\ChangeSetAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\DeleteCommand;
@@ -93,15 +94,34 @@ class StockUpdater implements EventSubscriberInterface
         return [
             CheckoutOrderPlacedEvent::class => 'orderPlaced',
             StateMachineTransitionEvent::class => 'stateChanged',
-            PreWriteValidationEvent::class => 'triggerChangeSet',
+            //PreWriteValidationEvent::class => 'triggerChangeSet',
             OrderEvents::ORDER_LINE_ITEM_WRITTEN_EVENT => 'lineItemWritten',
             OrderEvents::ORDER_LINE_ITEM_DELETED_EVENT => 'lineItemWritten',
+//            EntityWrittenContainerEvent::class => [
+//                ['entitiesWritten', -20000],
+//            ],
         ];
+    }
+
+    public function entitiesWritten(EntityWrittenContainerEvent $event)
+    {
+        $this->logger->log(100, 'entityWritten:' . $this->type);
+
+        $keys = [];
+        $events = $event->getEvents();
+        if (!$events) {
+            return;
+        }
+
+        /** @var EntityWrittenEvent $writtenEvent */
+        foreach ($events as $writtenEvent) {
+            $this->logger->log(100, 'entityWritten:payloads: ' . print_r($writtenEvent->getPayloads(), true));
+
+        }
     }
 
     public function triggerChangeSet(PreWriteValidationEvent $event): void
     {
-        $this->logger->log(100, 'triggeChangeSet: ' . $this->type);
         if ($event->getContext()->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
