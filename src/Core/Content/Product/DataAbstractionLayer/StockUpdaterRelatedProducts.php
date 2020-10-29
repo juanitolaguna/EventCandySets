@@ -4,7 +4,7 @@ namespace EventCandy\Sets\Core\Content\Product\DataAbstractionLayer;
 
 use Doctrine\DBAL\Connection;
 use ErrorException;
-use Psr\Log\LoggerInterface;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
 use Shopware\Core\Framework\Context;
@@ -12,6 +12,15 @@ use Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Uuid\Uuid;
 
+/**
+ * Class StockUpdaterRelatedProducts
+ * @package EventCandy\Sets\Core\Content\Product\DataAbstractionLayer
+ *
+ * 3 Methods
+ * - updateOnOrderPlaced + private innerLoop helper - subtract only available_stock
+ * - updateStockOnChange - add, subtract on stock & available_stock
+ * - clearCache
+ */
 class StockUpdaterRelatedProducts
 {
     /**
@@ -23,11 +32,6 @@ class StockUpdaterRelatedProducts
      * @var Connection
      */
     private $connection;
-
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
 
     /**
      * @var ProductDefinition
@@ -47,11 +51,9 @@ class StockUpdaterRelatedProducts
     /**
      * StockUpdaterRelatedProducts constructor.
      * @param Connection $connection
-     * @param LoggerInterface $logger
      */
     public function __construct(
         Connection $connection,
-        LoggerInterface $logger,
         ProductDefinition $definition,
         CacheClearer $cache,
         EntityCacheKeyGenerator $cacheKeyGenerator,
@@ -59,7 +61,6 @@ class StockUpdaterRelatedProducts
     )
     {
         $this->connection = $connection;
-        $this->logger = $logger;
         $this->definition = $definition;
         $this->cache = $cache;
         $this->cacheKeyGenerator = $cacheKeyGenerator;
@@ -70,10 +71,9 @@ class StockUpdaterRelatedProducts
     public function updateRelatedProductsOnOrderPlaced(array $ids, Context $context)
     {
 
-//        $bytesIds = Uuid::fromHexToBytesList($refIds);
-
         foreach ($ids as $id) {
-            $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
+            $sqlSetProducts = 'select product_id, product_version_id, quantity
+                    from ec_product_product as pp
                     where pp.set_product_id = :id;';
 
             $rows = $this->connection->fetchAll(
@@ -86,9 +86,6 @@ class StockUpdaterRelatedProducts
                 AND order_line_item.type = :orderType
                 AND order_line_item.version_id = :version;';
 
-            $this->logger->log(100, 'updateRelatedProductsOnOrderPlaced:ids ' . print_r($id, TRUE));
-            $this->logger->log(100, 'updateRelatedProductsOnOrderPlaced:type ' . print_r($this->type, TRUE));
-
             $quantity = $this->connection->fetchArray(
                 $quantityQuery,
                 [
@@ -98,23 +95,23 @@ class StockUpdaterRelatedProducts
                 ]
             );
 
-            $this->logger->log(100, 'updateRelatedProductsOnOrderPlaced:rows ' . print_r($rows, TRUE));
-            $this->logger->log(100, 'updateRelatedProductsOnOrderPlaced:quantity ' . print_r($quantity, TRUE));
+            $productIds = $this->updateRelatedProductsAvailableStockInnerLoop($rows, intval($quantity[0]));
+            $productIdsHex = Uuid::fromBytesToHexList($productIds);
+            Utils::log('productIds: ' . print_r($productIdsHex, true));
 
-            $this->updateRelatedProductsAvailableStockInnerLoop($rows, intval($quantity[0]));
+            $this->clearCache($productIdsHex);
+
+            /** ToDo: clear cache on orderPlaced */
         }
     }
 
-    private function updateRelatedProductsAvailableStockInnerLoop(array $rows, int $mainProductQuantity)
+    private function updateRelatedProductsAvailableStockInnerLoop(array $rows, int $mainProductQuantity): array
     {
         $sqlUpdateProducts = 'UPDATE product SET available_stock = (available_stock - (:quantity * :mainProductQuantity))
-                                 WHERE product.id = (:productId) AND product.version_id = :productVersionId;
-                             ';
-
+                                 WHERE product.id = (:productId) AND product.version_id = :productVersionId;';
         $productIds = [];
 
         foreach ($rows as $row) {
-            // Todo
             $productId = $row['product_id'];
             $productVersionId = $row['product_version_id'];
             $quantity = $row['quantity'];
@@ -133,9 +130,9 @@ class StockUpdaterRelatedProducts
                     ]
                 );
             });
-        }
 
-//        $this->clearCache($productIds);
+        }
+        return $productIds;
     }
 
     public function updateStockOnStateChange(array $lineItems, int $multiplier, string $stockType)
@@ -179,14 +176,14 @@ class StockUpdaterRelatedProducts
             }
         }
 
+        Utils::log(print_r($productIds, true));
         $this->clearCache($productIds);
     }
 
     private function clearCache(array $ids): void
     {
         $tags = [];
-        $hexIds = Uuid::fromBytesToHexList($ids);
-        foreach ($hexIds as $id) {
+        foreach ($ids as $id) {
             $tags[] = $this->cacheKeyGenerator->getEntityTag($id, $this->definition->getEntityName());
         }
 
@@ -195,7 +192,6 @@ class StockUpdaterRelatedProducts
         $tags[] = $this->cacheKeyGenerator->getFieldTag($this->definition, 'availableStock');
         $tags[] = $this->cacheKeyGenerator->getFieldTag($this->definition, 'stock');
 
-//        $this->logger->log(100, 'clear-cache: ' .print_r($tags, true));
         $this->cache->invalidateTags($tags);
     }
 
