@@ -172,6 +172,8 @@ class StockUpdater implements EventSubscriberInterface
     public function onProductStockUpdateAfter(EntityWrittenContainerEvent $event): void
     {
 
+        Utils::log(print_r($this->quantityBefore, true));
+
         //execute only once, since same class is instantiated twice;
         if ($this->type === 'event-candy-label-me') {
             return;
@@ -187,6 +189,8 @@ class StockUpdater implements EventSubscriberInterface
 
         //check if product is a subproduct
         if (!$this->checkIfSubProduct($byteId, $event)) {
+            // override SwStockUpdater, include custom line item types
+            $this->updateAvailableStock([$ids[0]], $event->getContext());
             return;
         }
 
@@ -503,7 +507,7 @@ class StockUpdater implements EventSubscriberInterface
                 ON state_machine_state.id = `order`.state_id
                 AND state_machine_state.technical_name NOT IN (:states)
             WHERE LOWER(order_line_item.referenced_id) = LOWER(HEX(product.id))
-                AND order_line_item.type = :type
+                AND order_line_item.type in (:types)
                 AND order_line_item.version_id = :version
             )WHERE product.id IN (:ids) AND product.version_id = :version;';
 
@@ -512,7 +516,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->connection->executeUpdate(
                 $sql,
                 [
-                    'type' => $this->type,
+                    'types' => [LineItem::PRODUCT_LINE_ITEM_TYPE, 'setproduct', 'event-candy-label-me'],
                     'version' => Uuid::fromHexToBytes($context->getVersionId()),
                     'states' => [OrderStates::STATE_COMPLETED, OrderStates::STATE_CANCELLED],
                     'ids' => $bytes,
@@ -520,6 +524,7 @@ class StockUpdater implements EventSubscriberInterface
                 [
                     'ids' => Connection::PARAM_STR_ARRAY,
                     'states' => Connection::PARAM_STR_ARRAY,
+                    'types' => Connection::PARAM_STR_ARRAY
                 ]
             );
         });
