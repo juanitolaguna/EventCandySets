@@ -3,4 +3,14 @@ const {Component} = Shopware;
 
 Component.override('sw-entity-listing', {
     template,
+
+    methods: {
+        createdComponent() {
+            this.$super('createdComponent');
+
+            if (this.items) {
+                this.applyResult(this.items);
+            }
+        },
+    }
 });
