@@ -39,6 +39,9 @@
      {% parent() %}
  {% endblock %}
 
+ {% block sw_product_detail_base_category_form %}
+     <sw-product-category-form :belongsToSet="belongsToSet" :allowEdit="acl.can('product.editor')"></sw-product-category-form>
+ {% endblock %}
 
 
 {% block sw_product_detail_attribute_sets %}

@@ -1,0 +1,5 @@
+{% block sw_product_category_form_visibility_field %}
+    <template v-if="!belongsToSet">
+        {% parent() %}
+    </template>
+{% endblock %}
