@@ -1,6 +1,6 @@
 {% block sw_data_grid_preview_slot %}
     <slot v-if="previews && !isInlineEdit(item)"
-          :name="`preview-${column.property}`"
+          :name="`preview-${column.property}`"vm
           v-bind="{ item, column, compact }">
     </slot>
     <span style="color: #d35400;" v-if="column.property === 'name' && item.customFields && item.customFields['ec_is_set']">

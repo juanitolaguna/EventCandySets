@@ -197,10 +197,24 @@ Component.register('ec-many-to-many-assignment-card', {
             return this.criteria.filters;
         },
 
-        getGrossPrice() {
-            const price = this.gridData.reduce((total, start) => total +  (start.product.price[0].gross * start.quantity) , 0);
-            return Number(price.toFixed(2));
-        },
+        // getGrossPrice() {
+        //     const price = this.gridData.reduce((total, start) => total + (start.product.price[0].gross * start.quantity), 0);
+        //     return Number(price.toFixed(2));
+        // },
+        getAvailableStock() {
+            if (this.gridData.length === 0) {
+                return 0;
+            }
+
+            const min =  this.gridData.reduce((total, e) => {
+                const eStock = Math.floor(e.product.availableStock / e.quantity);
+                const accStock = Math.floor(total.product.availableStock / total.quantity);
+                return accStock < eStock ? total : e;
+            }, this.gridData[0])
+
+            this.$parent.$emit('set-available-stock', min);
+            return Math.floor(min.product.availableStock / min.quantity);
+        }
     },
     watch: {
         criteria: {
@@ -304,6 +318,7 @@ Component.register('ec-many-to-many-assignment-card', {
         },
 
         searchItems() {
+            console.log('search is triggered');
             return this.searchRepository.search(this.searchCriteria, this.context).then((result) => {
 
                 if (!this.localMode) {

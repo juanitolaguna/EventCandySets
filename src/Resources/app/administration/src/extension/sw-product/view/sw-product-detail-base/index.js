@@ -10,12 +10,12 @@ Component.override('sw-product-detail-base', {
     data() {
         return {
             belongsToSet: false,
-            belongsToSetList: null
+            belongsToSetList: null,
+            setAvailableStock: 0
         }
     },
 
     computed: {
-
         isSetActive() {
             const hasCFProperty = this.product.hasOwnProperty('customFields');
             if (hasCFProperty) {
@@ -37,18 +37,23 @@ Component.override('sw-product-detail-base', {
                 {
                     property: 'product.name',
                     label: 'Name',
-                    sortable: false,
+                    sortable: true,
                 },
+                // {
+                //     property: 'product.price[0].gross',
+                //     label: 'Price (brutto)',
+                //     sortable: false,
+                // },
                 {
-                    property: 'product.price[0].gross',
-                    label: 'Price (brutto)',
-                    sortable: false,
-                }
-                , {
                     property: 'quantity',
                     label: 'Quantity',
                     sortable: false,
                     inlineEdit: 'number'
+                },
+                {
+                    property: 'product.availableStock',
+                    label: 'Available Stock',
+                    sortable: false
                 }
             ];
         },
@@ -61,7 +66,15 @@ Component.override('sw-product-detail-base', {
 
     },
 
+
     methods: {
+        createdComponent() {
+            this.$super('createdComponent');
+            this.$on('set-available-stock', this.onSetAvailableStock);
+        },
+        onSetAvailableStock(min) {
+            this.setAvailableStock = Math.floor(min.product.availableStock / min.quantity);
+        },
         productBelongsToSet() {
             const criteria = new Criteria();
             // When I checked in computed this.product.id the method threw an exception.
