@@ -4,7 +4,6 @@ namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
 use ErrorException;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
-use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\Event\LineItemAddedEvent;
 use Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator;
 use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
@@ -28,7 +27,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * @package EventCandy\Sets\Storefront\Page\Product\Subscriber
  * Calculates price before product is loaded in Storefront.
  */
-class ProductListingSubscriber implements EventSubscriberInterface
+class PriceProductListingSubscriber implements EventSubscriberInterface
 {
 
     /**
@@ -36,14 +35,27 @@ class ProductListingSubscriber implements EventSubscriberInterface
      */
     private $productProductRepository;
 
+    /**
+     * @var QuantityPriceCalculator
+     */
+    private $priceCalculator;
+
+    /**
+     * @var ProductPriceDefinitionBuilderInterface
+     */
+    private $priceDefinitionBuilder;
 
     /**
      * ProductListingSubscriber constructor.
      * @param EntityRepositoryInterface $productProductRepository
+     * @param QuantityPriceCalculator $priceCalculator
+     * @param ProductPriceDefinitionBuilderInterface $priceDefinitionBuilder
      */
-    public function __construct(EntityRepositoryInterface $productProductRepository)
+    public function __construct(EntityRepositoryInterface $productProductRepository, QuantityPriceCalculator $priceCalculator, ProductPriceDefinitionBuilderInterface $priceDefinitionBuilder)
     {
         $this->productProductRepository = $productProductRepository;
+        $this->priceCalculator = $priceCalculator;
+        $this->priceDefinitionBuilder = $priceDefinitionBuilder;
     }
 
     public static function getSubscribedEvents(): array
@@ -67,54 +79,54 @@ class ProductListingSubscriber implements EventSubscriberInterface
 
     private function enrichProduct(SalesChannelProductEntity $product, SalesChannelContext $context)
     {
-
-        // get related products
         $productId = $product->getId();
+
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('setProductId', $productId));
         $criteria->addAssociation('product');
+
         $result = $this->productProductRepository->search($criteria, $context->getContext());
 
-        // calculate starter value
-        /** @var ProductProductEntity $first */
-        $first = $result->first();
-        $quantity = $first->getQuantity() < 1 ? 1 : $first->getQuantity();
-        $availableStock = $first->getProduct()->getAvailableStock();
-        $accQuantity = (int) floor($availableStock / $quantity);
 
-        // calculate min available stock
+        $calculatedPrices = [];
         /** @var ProductProductEntity $pp */
         foreach ($result as $pp) {
-            $quantity = $pp->getQuantity() < 1 ? 1 : $pp->getQuantity();
-            $availableStock = $pp->getProduct()->getAvailableStock();
-            $realQuantity = (int) floor($availableStock / $quantity);
+            $prices = $this->priceDefinitionBuilder->build($pp->getProduct(), $context);
+            $calculatedPrice = $this->priceCalculator->calculate($prices->getPrice(), $context);
+            $calculatedPrices[] = [
+                'quantity' => $pp->getQuantity(),
+                'calculatedPrice' => $calculatedPrice
+            ];
+        }
 
-            $accQuantity = $realQuantity < $accQuantity ? $realQuantity : $accQuantity;
+        $calculatedTaxes = $product->getCalculatedPrice()->getCalculatedTaxes();
+        $calculatedTaxRules = $product->getCalculatedPrice()->getTaxRules();
+
+        $unitPrice = $this->sumColumn("getUnitPrice", $calculatedPrices);
+        $totalPrice = $this->sumColumn("getTotalPrice", $calculatedPrices);
+
+        //set simple price
+        // custom field remains in product json after uninstall -> check needed.
+        if ($unitPrice !== 0) {
+            $product->setCalculatedPrice(new CalculatedPrice(
+                $unitPrice,
+                $totalPrice,
+                $calculatedTaxes,
+                $calculatedTaxRules
+            ));
         }
 
 
-        $product->setAvailableStock((int) $accQuantity);
-
-        // set calculated purchase quantity gen min(uservalue)
-        $maxPurchase = $product->getMaxPurchase();
-        if ($maxPurchase !== null) {
-            $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
-            $product->setCalculatedMaxPurchase($min);
-        } else {
-            $product->setCalculatedMaxPurchase((int) $accQuantity);
-        }
-
-
-        $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
-
-        //set flags based on quantity
-        if ($accQuantity < $minPurchase) {
-            $product->setAvailable(false);
-            $product->setIsCloseout(true);
-        } else {
-            $product->setAvailable(true);
-            $product->setIsCloseout(false);
-        }
     }
+
+    private function sumColumn(string $columnNameMethod, array $array)
+    {
+        /** @var CalculatedPrice $price */
+        return array_reduce($array, function (float $acc, array $price) use ($columnNameMethod) {
+            $acc += call_user_func([$price['calculatedPrice'], $columnNameMethod]) * $price['quantity'];
+            return $acc;
+        }, 0);
+    }
+
 
 }

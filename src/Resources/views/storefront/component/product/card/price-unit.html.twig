@@ -3,7 +3,7 @@
 {% block component_product_box_price %}
     {% if product.customFields and product.customFields['ec_is_set'] %}
         {{ parent() }}
-        <span>(* Stückliste)</span>
+{#        <span>(* Stückliste)</span>#}
     {% else %}
         {{ parent() }}
     {% endif %}
