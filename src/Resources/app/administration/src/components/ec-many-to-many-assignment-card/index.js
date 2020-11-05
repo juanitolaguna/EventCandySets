@@ -3,7 +3,7 @@ import './ec-many-to-many-assignment-card.scss';
 
 const {Component, Context} = Shopware;
 const {debounce, get} = Shopware.Utils;
-const {Criteria, EntityCollection} = Shopware.Data;
+const {Criteria} = Shopware.Data;
 
 /**
  * @public
@@ -196,11 +196,6 @@ Component.register('ec-many-to-many-assignment-card', {
         originalFilters() {
             return this.criteria.filters;
         },
-
-        // getGrossPrice() {
-        //     const price = this.gridData.reduce((total, start) => total + (start.product.price[0].gross * start.quantity), 0);
-        //     return Number(price.toFixed(2));
-        // },
         getAvailableStock() {
             if (this.gridData.length === 0) {
                 return 0;

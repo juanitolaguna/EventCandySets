@@ -2,8 +2,6 @@ import template from './sw-product-detail-base.html.twig';
 import Criteria from 'src/core/data-new/criteria.data';
 
 const {Component, Context} = Shopware;
-// const {Criteria, EntityCollection} = Shopware.Data;
-
 Component.override('sw-product-detail-base', {
     template,
 
@@ -39,11 +37,6 @@ Component.override('sw-product-detail-base', {
                     label: 'Name',
                     sortable: true,
                 },
-                // {
-                //     property: 'product.price[0].gross',
-                //     label: 'Price (brutto)',
-                //     sortable: false,
-                // },
                 {
                     property: 'quantity',
                     label: 'Quantity',

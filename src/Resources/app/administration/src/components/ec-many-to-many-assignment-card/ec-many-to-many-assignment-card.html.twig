@@ -126,19 +126,9 @@ class="sw-many-to-many-assignment-card__grid"
         {% block sw_entity_many_to_many_assignment_card_grid_footer %}
             {% block sw_entity_many_to_many_assignment_card_grid_footer_remote_mode %}
                 <template v-if="!localMode">
-                    {# <sw-pagination #}
-                    {# v-if="total > 0" #}
-                    {# v-bind="{ limit, page, total }" #}
-                    {# :autoHide="true" #}
-                    {# @page-change="paginateGrid" #}
-                    {# > #}
-                    {# </sw-pagination> #}
-
-
                     <div class="sw-many-to-many-assignment-card__empty-state">
                         <slot name="empty-state">
                             Kalkulierter Verfügbarer Bestand: <strong>{{ getAvailableStock }}</strong>
-{#                            Summe: {{ getGrossPrice }} <span v-if="systemCurrency">{{ systemCurrency.symbol }}</span>#}
                         </slot>
                     </div>
                 </template>
