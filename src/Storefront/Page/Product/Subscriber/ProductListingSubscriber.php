@@ -2,17 +2,7 @@
 
 namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
-use ErrorException;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
-use EventCandy\Sets\Utils;
-use Shopware\Core\Checkout\Cart\Event\LineItemAddedEvent;
-use Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator;
-use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
-use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
-use Shopware\Core\Checkout\Cart\Price\Struct\ReferencePrice;
-use Shopware\Core\Checkout\Cart\Tax\Struct\CalculatedTaxCollection;
-use Shopware\Core\Checkout\Cart\Tax\Struct\TaxRuleCollection;
-use Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -23,10 +13,9 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 
 /**
- * Subscriber is deactivated in Services because no price calculation needed.
  * Class ProductListingSubscriber
  * @package EventCandy\Sets\Storefront\Page\Product\Subscriber
- * Calculates price before product is loaded in Storefront.
+ * Calculates stock before product is loaded in Storefront.
  */
 class ProductListingSubscriber implements EventSubscriberInterface
 {
@@ -67,33 +56,10 @@ class ProductListingSubscriber implements EventSubscriberInterface
 
     private function enrichProduct(SalesChannelProductEntity $product, SalesChannelContext $context)
     {
-
         // get related products
         $productId = $product->getId();
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('setProductId', $productId));
-        $criteria->addAssociation('product');
-        $result = $this->productProductRepository->search($criteria, $context->getContext());
-
-        // calculate starter value
-        /** @var ProductProductEntity $first */
-        $first = $result->first();
-        $quantity = $first->getQuantity() < 1 ? 1 : $first->getQuantity();
-        $availableStock = $first->getProduct()->getAvailableStock();
-        $accQuantity = (int) floor($availableStock / $quantity);
-
-        // calculate min available stock
-        /** @var ProductProductEntity $pp */
-        foreach ($result as $pp) {
-            $quantity = $pp->getQuantity() < 1 ? 1 : $pp->getQuantity();
-            $availableStock = $pp->getProduct()->getAvailableStock();
-            $realQuantity = (int) floor($availableStock / $quantity);
-
-            $accQuantity = $realQuantity < $accQuantity ? $realQuantity : $accQuantity;
-        }
-
-
-        $product->setAvailableStock((int) $accQuantity);
+        $accQuantity = $this->getAvailableStock($productId, $context->getContext());
+        $product->setAvailableStock((int)$accQuantity);
 
         // set calculated purchase quantity gen min(uservalue)
         $maxPurchase = $product->getMaxPurchase();
@@ -101,9 +67,8 @@ class ProductListingSubscriber implements EventSubscriberInterface
             $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
             $product->setCalculatedMaxPurchase($min);
         } else {
-            $product->setCalculatedMaxPurchase((int) $accQuantity);
+            $product->setCalculatedMaxPurchase((int)$accQuantity);
         }
-
 
         $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
 
@@ -115,6 +80,34 @@ class ProductListingSubscriber implements EventSubscriberInterface
             $product->setAvailable(true);
             $product->setIsCloseout(false);
         }
+    }
+
+
+    // make method reusable for other classes
+    public function getAvailableStock($productId, $context)
+    {
+        $criteria = new Criteria();
+        $criteria->addFilter(new EqualsFilter('setProductId', $productId));
+        $criteria->addAssociation('product');
+        $result = $this->productProductRepository->search($criteria, $context);
+
+        // calculate starter value
+        /** @var ProductProductEntity $first */
+        $first = $result->first();
+        $quantity = $first->getQuantity() < 1 ? 1 : $first->getQuantity();
+        $availableStock = $first->getProduct()->getAvailableStock();
+        $accQuantity = (int)floor($availableStock / $quantity);
+
+        // calculate min available stock
+        /** @var ProductProductEntity $pp */
+        foreach ($result as $pp) {
+            $quantity = $pp->getQuantity() < 1 ? 1 : $pp->getQuantity();
+            $availableStock = $pp->getProduct()->getAvailableStock();
+            $realQuantity = (int)floor($availableStock / $quantity);
+
+            $accQuantity = $realQuantity < $accQuantity ? $realQuantity : $accQuantity;
+        }
+        return $accQuantity;
     }
 
 }
