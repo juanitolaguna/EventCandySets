@@ -2,17 +2,17 @@
 
 {% block element_product_listing_col %}
     {% for product in searchResult %}
-        <div class="cms-listing-col {{ listingColumns }}">
-            {% if product.customFields and product.customFields['ec_is_set'] and product.availableStock < 1 %}
-                {# skip setproduct if no stock #}
-            {% else %}
+        {% if product.customFields and product.customFields['ec_is_set'] and product.availableStock < 1 %}
+            {# skip setproduct if no stock #}
+        {% else %}
+            <div class="cms-listing-col {{ listingColumns }}">
                 {% block element_product_listing_box %}
                     {% sw_include '@Storefront/storefront/component/product/card/box.html.twig' with {
                         'layout': boxLayout,
                         'displayMode': displayMode
                     } %}
                 {% endblock %}
-            {% endif %}
-        </div>
+            </div>
+        {% endif %}
     {% endfor %}
 {% endblock %}

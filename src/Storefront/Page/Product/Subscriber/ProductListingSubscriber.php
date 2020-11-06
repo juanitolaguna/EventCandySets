@@ -3,6 +3,7 @@
 namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -90,6 +91,10 @@ class ProductListingSubscriber implements EventSubscriberInterface
         $criteria->addFilter(new EqualsFilter('setProductId', $productId));
         $criteria->addAssociation('product');
         $result = $this->productProductRepository->search($criteria, $context);
+
+        if ($result->getTotal() === 0) {
+           return 0;
+        }
 
         // calculate starter value
         /** @var ProductProductEntity $first */
