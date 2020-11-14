@@ -79,7 +79,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         ProductFeatureBuilder $featureBuilder,
         Connection $connection,
         LoggerInterface $logger
-    ) {
+    )
+    {
         $this->productGateway = $productGateway;
         $this->priceDefinitionBuilder = $priceDefinitionBuilder;
         $this->calculator = $calculator;
@@ -93,7 +94,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         Cart $original,
         SalesChannelContext $context,
         CartBehavior $behavior
-    ): void {
+    ): void
+    {
         $lineItems = $original
             ->getLineItems()
             ->filterFlatByType(self::TYPE);
@@ -120,25 +122,44 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             // enrich all products in original cart
             $this->enrich($original, $lineItem, $data, $context, $behavior);
 
-            $this->addRelatedProductsToPayload($lineItem);
+            $this->addRelatedProductsToPayload($lineItem, $context);
         }
 
         $this->featureBuilder->prepare($lineItems, $data, $context);
     }
 
-    private function addRelatedProductsToPayload(LineItem $lineItem)
+    private function addRelatedProductsToPayload(LineItem $lineItem, SalesChannelContext $context)
     {
-        $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
-                    where pp.set_product_id = :id;';
+//        $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
+//                    where pp.set_product_id = :id;';
+
+        $sqlSetProducts = 'select
+                            	pp.product_version_id,
+                            	pp.product_id,
+                            	pp.quantity,
+                            	pt.name,
+                            	p.product_number
+                            from
+                            	ec_product_product as pp
+                            	left join product_translation pt on pp.product_id = pt.product_id
+                            	left join product p on pp.product_id = p.id
+                            where
+                            	pp.set_product_id = :id
+                            	and pt.language_id = :languageId';
 
         $rows = $this->connection->fetchAll(
             $sqlSetProducts,
-            ['id' => Uuid::fromHexToBytes($lineItem->getReferencedId())]
+            [
+                'id' => Uuid::fromHexToBytes($lineItem->getReferencedId()),
+                'languageId' => Uuid::fromHexToBytes($context->getContext()->getLanguageId())
+            ]
         );
 
         $setProducts = [];
         foreach ($rows as $row) {
             $setProducts[] = [
+                'product_number' => $row['product_number'],
+                'name' => $row['name'],
                 'product_id' => Uuid::fromBytesToHex($row['product_id']),
                 'product_version_id' => Uuid::fromBytesToHex($row['product_version_id']),
                 'quantity' => $row['quantity']
@@ -157,7 +178,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         Cart $toCalculate,
         SalesChannelContext $context,
         CartBehavior $behavior
-    ): void {
+    ): void
+    {
 
         // handle all products which stored in root level
         $lineItems = $original
@@ -206,7 +228,7 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                 $original->remove($lineItem->getId());
 
                 $toCalculate->addErrors(
-                    new ProductOutOfStockError($product->getId(), (string) $product->getTranslation('name'))
+                    new ProductOutOfStockError($product->getId(), (string)$product->getTranslation('name'))
                 );
 
                 continue;
@@ -218,7 +240,7 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                 $definition->setQuantity($available);
 
                 $toCalculate->addErrors(
-                    new ProductStockReachedError($product->getId(), (string) $product->getTranslation('name'), $available)
+                    new ProductStockReachedError($product->getId(), (string)$product->getTranslation('name'), $available)
                 );
             }
 
@@ -227,7 +249,7 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                 $lineItem->setQuantity($fixedQuantity);
                 $definition->setQuantity($fixedQuantity);
                 $toCalculate->addErrors(
-                    new PurchaseStepsError($product->getId(), (string) $product->getTranslation('name'), $fixedQuantity)
+                    new PurchaseStepsError($product->getId(), (string)$product->getTranslation('name'), $fixedQuantity)
                 );
             }
 
@@ -245,7 +267,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         CartDataCollection $data,
         SalesChannelContext $context,
         CartBehavior $behavior
-    ): void {
+    ): void
+    {
         $id = $lineItem->getReferencedId();
 
         $key = 'product-' . $id;
@@ -281,8 +304,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
 
         $lineItem->setDeliveryInformation(
             new DeliveryInformation(
-                (int) $product->getAvailableStock(),
-                (float) $product->getWeight(),
+                (int)$product->getAvailableStock(),
+                (float)$product->getWeight(),
                 $product->getShippingFree(),
                 $product->getRestockTime(),
                 $deliveryTime,
@@ -432,6 +455,6 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
 
     private function fixQuantity(int $min, int $current, int $steps): int
     {
-        return (int) (floor(($current - $min) / $steps) * $steps + $min);
+        return (int)(floor(($current - $min) / $steps) * $steps + $min);
     }
 }
