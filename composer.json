@@ -12,8 +12,8 @@
     "extra": {
         "shopware-plugin-class": "EventCandy\\Sets\\EventCandySets",
         "label": {
-            "de-DE": "Sets plugin",
-            "en-GB": "Sets plugin"
+            "de-DE": "EventCandy Sets",
+            "en-GB": "EventCandy Sets"
         }
     }
 }
