@@ -6,7 +6,7 @@ pluginName="EventCandySets"
 
 #copy new storefront build
 #sudo rm -rf ./src/Resources/app/storefront/dist/storefront
-#docker cp shopware:/var/www/html/custom/plugins/EventCandyLabelMe/src/Resources/app/storefront/dist/. \
+#docker cp shopware:/var/www/html/custom/plugins/$pluginName/src/Resources/app/storefront/dist/. \
 #./src/Resources/app/storefront/dist
 
 #copy new administration
