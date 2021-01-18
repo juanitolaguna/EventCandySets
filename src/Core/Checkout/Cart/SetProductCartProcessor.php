@@ -167,6 +167,9 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         }
 
         $lineItem->setPayload([self::TYPE => $setProducts]);
+
+        // format setProducts as a string
+        $lineItem->setPayload(['line_item_set_product' => 'Lorem ipsum dolor sit amet, consectetuer adipiscing elit...']);
     }
 
     /**
