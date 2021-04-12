@@ -156,6 +156,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         );
 
         $setProducts = [];
+        $lineItemSubProducts = "";
+
         foreach ($rows as $row) {
             $setProducts[] = [
                 'product_number' => $row['product_number'],
@@ -164,12 +166,16 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                 'product_version_id' => Uuid::fromBytesToHex($row['product_version_id']),
                 'quantity' => $row['quantity']
             ];
+
+            // Sub Products line für fljnk
+            $lineItemSubProducts .= "- {$row['product_number']} - {$row['name']} - {$row['quantity']}x \n";
+
         }
 
         $lineItem->setPayload([self::TYPE => $setProducts]);
 
-        // format setProducts as a string
-        $lineItem->setPayload(['line_item_sub_products' => 'Lorem ipsum dolor sit amet, consectetuer adipiscing elit...']);
+        // format setProducts as a string‚
+        $lineItem->setPayload(['line_item_sub_products' => $lineItemSubProducts]);
     }
 
     /**

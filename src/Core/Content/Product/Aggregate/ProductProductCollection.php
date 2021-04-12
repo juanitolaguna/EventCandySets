@@ -16,6 +16,11 @@ use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
  */
 class ProductProductCollection extends EntityCollection
 {
+    public function getApiAlias(): string
+    {
+        return 'ec_product_product';
+    }
+
     protected function getExpectedClass(): string
     {
         return ProductProductEntity::class;
