@@ -66,9 +66,7 @@
                                         </sw-highlight-text>
 
                                         <template v-else>
-                                            {{ getKey(item,labelProperty) || getKey(item, `
-                                            translated.${labelProperty}`)
-                                            }}
+                                            {{ getKey(item,labelProperty) || getKey(item, `translated.${labelProperty}`) }}
                                         </template>
                                     </slot>
                                     {% endblock %}

@@ -40,7 +40,8 @@
  {% endblock %}
 
  {% block sw_product_detail_base_category_form %}
-     <sw-product-category-form :belongsToSet="belongsToSet" :allowEdit="acl.can('product.editor')"></sw-product-category-form>
+     <sw-product-category-form :belongsToSet="belongsToSet"
+                               :allowEdit="acl.can('product.editor')"></sw-product-category-form>
  {% endblock %}
 
 
@@ -57,7 +58,14 @@
             :entityId="product.id"
             :active="isSetActive"
             {# :customGridCriteria="setProductCriteria" #}
-    ></ec-many-to-many-assignment-card>
+    >
+        <template #column-product.name="{item, column}">
+            <router-link :to="{ name: 'sw.product.detail', params: { id: item.product.id } }">
+                <sw-icon name="default-web-link" small></sw-icon>&nbsp; {{ item.product.name }}
+            </router-link>
+        </template>
+
+    </ec-many-to-many-assignment-card>
 
     <sw-alert
             v-else
