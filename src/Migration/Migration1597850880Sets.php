@@ -31,6 +31,7 @@ class Migration1597850880Sets extends MigrationStep
             CONSTRAINT `fk.ec_product_product.set_product_id` FOREIGN KEY (`set_product_id`,`set_product_version_id`) REFERENCES `product` (`id`,`version_id`) ON DELETE CASCADE ON UPDATE CASCADE,
             CONSTRAINT `fk.ec_product_product.product_id` FOREIGN KEY (`product_id`,`product_version_id`) REFERENCES `product` (`id`,`version_id`) ON DELETE CASCADE ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;');
+
     }
 
     public function updateDestructive(Connection $connection): void

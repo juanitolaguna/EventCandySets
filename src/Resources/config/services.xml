@@ -30,7 +30,15 @@
 
         <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">
             <argument type="service" id="ec_product_product.repository"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\CartPersister"/>
+            <argument type="tagged" tag="ec.sets.cart_reducer"/>
+            <argument type="service" id="event_dispatcher"/>
+
             <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Checkout\Cart\SubProductCartReducer">
+            <tag name="ec.sets.cart_reducer"/>
         </service>
 
         <service id="EventCandy\Sets\Core\Checkout\Cart\SetProductCartProcessor">

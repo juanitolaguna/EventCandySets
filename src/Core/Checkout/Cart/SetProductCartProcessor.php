@@ -3,6 +3,8 @@
 namespace EventCandy\Sets\Core\Checkout\Cart;
 
 use Doctrine\DBAL\Connection;
+use EventCandy\LabelMe\Core\Checkout\Cart\EclmCartProcessor;
+use EventCandyCandyBags\Core\Checkout\Cart\CandyBagsCartProcessor;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
@@ -25,6 +27,7 @@ use Shopware\Core\Content\Product\Cart\PurchaseStepsError;
 use Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Defaults;
+use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
@@ -100,16 +103,12 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             ->getLineItems()
             ->filterFlatByType(self::TYPE);
 
-        /** Debug */
-//        if (count($lineItems) > 0) {
-//            $this->logger->log(100, 'SetProductCartProcessor collect: ' . self::TYPE );
-//        }
-
         // find products in original cart which requires data from gateway
         $ids = $this->getNotCompleted($data, $lineItems);
 
         if (!empty($ids)) {
             // fetch missing data over gateway
+            $context->addExtension('processorType', new ArrayStruct(['processorType' => self::TYPE]));
             $products = $this->productGateway->get($ids, $context);
 
             // add products to data collection
@@ -121,13 +120,18 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         foreach ($lineItems as $lineItem) {
             // enrich all products in original cart
             $this->enrich($original, $lineItem, $data, $context, $behavior);
-
             $this->addRelatedProductsToPayload($lineItem, $context);
         }
 
         $this->featureBuilder->prepare($lineItems, $data, $context);
     }
 
+    /**
+     * #dup - @link EclmCartProcessor
+     * #dup - @link CandyBagsCartProcessor
+     * @param LineItem $lineItem
+     * @param SalesChannelContext $context
+     */
     private function addRelatedProductsToPayload(LineItem $lineItem, SalesChannelContext $context)
     {
 //        $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
@@ -173,9 +177,10 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         }
 
         $lineItem->setPayload([self::TYPE => $setProducts]);
-
         // format setProducts as a string‚
         $lineItem->setPayload(['line_item_sub_products' => $lineItemSubProducts]);
+
+
     }
 
     /**
