@@ -31,7 +31,7 @@ class SubProductCartReducer implements SubProductQuantityInCartReducerInterface
         $counter = 0;
         foreach ($lineItems as $lineItem) {
             if ($lineItem->getReferencedId() === $relatedMainId) {
-                $counter = $lineItem->getQuantity() * $subProductQuantity;
+                $counter += $lineItem->getQuantity() * $subProductQuantity;
             }
         }
 

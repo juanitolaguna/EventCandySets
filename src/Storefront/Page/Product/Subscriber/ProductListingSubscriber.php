@@ -4,12 +4,12 @@ namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
 use EventCandy\Sets\Core\Checkout\Cart\SubProductQuantityInCartReducerInterface;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
+use EventCandy\Sets\Core\SetProductLoadedEvent;
 use EventCandyCandyBags\Utils;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
-use Shopware\Core\Checkout\Cart\Event\CartCreatedEvent;
 use Shopware\Core\Checkout\Cart\Exception\CartTokenNotFoundException;
-use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
+use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -48,7 +48,6 @@ class ProductListingSubscriber implements EventSubscriberInterface
      */
     private $eventDispatcher;
 
-    private static $count = 0;
 
 
     /**
@@ -70,13 +69,30 @@ class ProductListingSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            'sales_channel.product.loaded' => 'salesChannelProductLoaded'
+            'sales_channel.product.loaded' => 'salesChannelProductLoaded',
+            SetProductLoadedEvent::class => 'setProductLoaded'
         ];
+    }
+
+    /**
+     * If SalesChannelRepository is not an option,
+     * for example, loading inactive products
+     * @param SetProductLoadedEvent $event
+     */
+    public function setProductLoaded(SetProductLoadedEvent $event)
+    {
+        /** @var SalesChannelProductEntity $product */
+        foreach ($event->getEntities() as $product) {
+            $keyIsTrue = array_key_exists('ec_is_set', $product->getCustomFields())
+                && $product->getCustomFields()['ec_is_set'];
+            if ($keyIsTrue) {
+                $this->enrichProduct($product, $event->getContext());
+            }
+        }
     }
 
     public function salesChannelProductLoaded(SalesChannelEntityLoadedEvent $event)
     {
-
         /** @var SalesChannelProductEntity $product */
         foreach ($event->getEntities() as $product) {
             $keyIsTrue = array_key_exists('ec_is_set', $product->getCustomFields())
@@ -86,27 +102,31 @@ class ProductListingSubscriber implements EventSubscriberInterface
             }
         }
 
-
     }
 
-    private function enrichProduct(SalesChannelProductEntity $product, SalesChannelContext $context)
+    private function enrichProduct(ProductEntity $product, SalesChannelContext $context)
     {
+
         // get related products
         $productId = $product->getId();
         $accQuantity = $this->getAvailableStock($productId, $context);
 
+        Utils::log("... " . $accQuantity);
 
         $product->setAvailableStock((int)$accQuantity);
 
 
         // set calculated purchase quantity gen min(uservalue)
         $maxPurchase = $product->getMaxPurchase();
-        if ($maxPurchase !== null) {
-            $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
-            $product->setCalculatedMaxPurchase($min);
-        } else {
-            $product->setCalculatedMaxPurchase((int)$accQuantity);
+        if ($product instanceof SalesChannelProductEntity) {
+            if ($maxPurchase !== null) {
+                $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
+                $product->setCalculatedMaxPurchase($min);
+            } else {
+                $product->setCalculatedMaxPurchase((int)$accQuantity);
+            }
         }
+
 
         $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
 
@@ -187,7 +207,6 @@ class ProductListingSubscriber implements EventSubscriberInterface
     private function getSubProductQuantityInCart(ProductProductEntity $pp, string $mainProduct, Cart $cart, SalesChannelContext $context): int
     {
         $subProductQuantityInCart = 0;
-
         //each masterProduct related to subProduct
         /** @var ProductProductEntity $relatedMainProduct */
         foreach ($pp->getProduct()->get('masterProductsJoinTable') as $relatedMainProduct) {
@@ -200,5 +219,4 @@ class ProductListingSubscriber implements EventSubscriberInterface
 
         return $subProductQuantityInCart;
     }
-
 }
