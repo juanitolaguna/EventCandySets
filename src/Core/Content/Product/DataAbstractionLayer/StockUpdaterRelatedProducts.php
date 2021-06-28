@@ -137,10 +137,10 @@ class StockUpdaterRelatedProducts
 
     public function updateStockOnStateChange(array $lineItems, int $multiplier, string $stockType)
     {
-        if ($stockType == 'available_stock') {
+        if ($stockType == StockUpdater::AVAILABLE_STOCK) {
             $sqlUpdateProducts = 'UPDATE product SET available_stock = (available_stock + (:quantity))
                                  WHERE product.id = (:productId) AND product.version_id = :productVersionId;';
-        } elseif ($stockType == 'stock') {
+        } elseif ($stockType == StockUpdater::STOCK) {
             $sqlUpdateProducts = 'UPDATE product SET stock = (stock + (:quantity))
                                  WHERE product.id = (:productId) AND product.version_id = :productVersionId;';
         } else {
@@ -152,8 +152,6 @@ class StockUpdaterRelatedProducts
         foreach ($lineItems as $lineItem) {
             $payload = json_decode($lineItem['payload'], true);
             $lineItemQuantity = $lineItem['quantity'];
-            $lineItemSetProductId = $lineItem['referenced_id'];
-
 
             foreach ($payload[$this->type] as $subProduct) {
                 $quantity = $subProduct['quantity'];

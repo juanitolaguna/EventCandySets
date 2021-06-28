@@ -4,6 +4,8 @@ namespace EventCandy\Sets\Core\Content\Product\DataAbstractionLayer;
 
 use Doctrine\DBAL\Connection;
 use ErrorException;
+use EventCandy\LabelMe\Core\Checkout\Cart\EclmCartProcessor;
+use EventCandy\Sets\Core\Checkout\Cart\SetProductCartProcessor;
 use EventCandy\Sets\Utils;
 use Hoa\Exception\Error;
 use Shopware\Core\Checkout\Cart\Event\CheckoutOrderPlacedEvent;
@@ -69,6 +71,9 @@ class StockUpdater implements EventSubscriberInterface
 
     private $orderStateNotDoneOrCanceled = false;
 
+    public const AVAILABLE_STOCK = 'available_stock';
+    public const STOCK = 'stock';
+
 
     public function __construct(
         Connection $connection,
@@ -97,10 +102,11 @@ class StockUpdater implements EventSubscriberInterface
             StateMachineTransitionEvent::class => 'stateChanged',
             OrderEvents::ORDER_LINE_ITEM_WRITTEN_EVENT => 'lineItemWritten',
             OrderEvents::ORDER_LINE_ITEM_DELETED_EVENT => 'lineItemWritten',
+
             EntityWrittenContainerEvent::class => [
-//                ['onProductStockUpdateBefore', 2000],
-                ['onProductStockUpdateAfter', -1000],
+                ['onProductStockUpdateAfter', -1000]
             ],
+
             PreWriteValidationEvent::class => [
                 ['onProductStockUpdateBefore', 0],
                 ['beforeOrderDeletion', 0]
@@ -111,7 +117,7 @@ class StockUpdater implements EventSubscriberInterface
     public function beforeOrderDeletion(PreWriteValidationEvent $event): void
     {
         //execute only once, since same class is instantiated twice;
-        if ($this->type === 'event-candy-label-me') {
+        if ($this->type !== SetProductCartProcessor::TYPE) {
             return;
         }
 
@@ -135,7 +141,7 @@ class StockUpdater implements EventSubscriberInterface
     public function onProductStockUpdateBefore(PreWriteValidationEvent $event): void
     {
         //execute only once, since same class is instantiated twice;
-        if ($this->type === 'event-candy-label-me') {
+        if ($this->type !== SetProductCartProcessor::TYPE) {
             return;
         }
 
@@ -175,7 +181,7 @@ class StockUpdater implements EventSubscriberInterface
         Utils::log(print_r($this->quantityBefore, true));
 
         //execute only once, since same class is instantiated twice;
-        if ($this->type === 'event-candy-label-me') {
+        if ($this->type !== SetProductCartProcessor::TYPE) {
             return;
         }
 
@@ -314,7 +320,7 @@ class StockUpdater implements EventSubscriberInterface
                 return;
             }
             Utils::log('getBefore on delete: ' . print_r($delete['payload']->getBefore(null), true));
-            $this->relatedProducts->updateStockOnStateChange([$delete['payload']->getBefore(null)], +1, 'available_stock');
+            $this->relatedProducts->updateStockOnStateChange([$delete['payload']->getBefore(null)], +1, self::AVAILABLE_STOCK);
         }
         $this->orderStateNotDoneOrCanceled = false;
 
@@ -368,7 +374,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->updateAvailableFlag($ids, $event->getContext());
 
             //increase available stock
-            $this->relatedProducts->updateStockOnStateChange($products, +1, 'available_stock');
+            $this->relatedProducts->updateStockOnStateChange($products, +1, self::AVAILABLE_STOCK);
             $this->clearCache($ids);
             return;
         }
@@ -388,7 +394,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->updateAvailableFlag($ids, $event->getContext());
 
             // decrease available stock
-            $this->relatedProducts->updateStockOnStateChange($products, -1, 'available_stock');
+            $this->relatedProducts->updateStockOnStateChange($products, -1, self::AVAILABLE_STOCK);
             $this->clearCache($ids);
             return;
         }
@@ -461,7 +467,7 @@ class StockUpdater implements EventSubscriberInterface
 
         $this->updateStock($products, +1);
 
-        $this->relatedProducts->updateStockOnStateChange($products, +1, 'stock');
+        $this->relatedProducts->updateStockOnStateChange($products, +1, self::STOCK);
 
         $this->clearCache($ids);
     }
@@ -480,7 +486,7 @@ class StockUpdater implements EventSubscriberInterface
 
         $this->updateStock($products, -1);
 
-        $this->relatedProducts->updateStockOnStateChange($products, -1, 'stock');
+        $this->relatedProducts->updateStockOnStateChange($products, -1, self::STOCK);
 
         $this->clearCache($ids);
     }
@@ -516,7 +522,7 @@ class StockUpdater implements EventSubscriberInterface
             $this->connection->executeUpdate(
                 $sql,
                 [
-                    'types' => [LineItem::PRODUCT_LINE_ITEM_TYPE, 'setproduct', 'event-candy-label-me'],
+                    'types' => [LineItem::PRODUCT_LINE_ITEM_TYPE, EclmCartProcessor::TYPE, SetProductCartProcessor::TYPE],
                     'version' => Uuid::fromHexToBytes($context->getVersionId()),
                     'states' => [OrderStates::STATE_COMPLETED, OrderStates::STATE_CANCELLED],
                     'ids' => $bytes,
