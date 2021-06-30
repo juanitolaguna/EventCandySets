@@ -127,15 +127,24 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
     }
 
     /**
-     * #dup - @link EclmCartProcessor
-     * #dup - @link CandyBagsCartProcessor
-     * @param LineItem $lineItem
+     * #dup - @param LineItem $lineItem
      * @param SalesChannelContext $context
+     * @link EclmCartProcessor
+     * #dup - @link CandyBagsCartProcessor
      */
     private function addRelatedProductsToPayload(LineItem $lineItem, SalesChannelContext $context)
     {
-//        $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp
-//                    where pp.set_product_id = :id;';
+        /*
+        * Base Query
+        * $sqlSetProducts = 'select product_id, product_version_id, quantity from ec_product_product as pp where pp.set_product_id = :id;';
+
+         * Do not do this. This function is triggered on checkout & if product quantity had changed to <= 0
+         * it wil not throw an error because it still thinks that there is enough...
+                if ($lineItem->getPayloadValue(self::TYPE) !== null && !$lineItem->isModified()) {
+                    return;
+                }
+        */
+
 
         $sqlSetProducts = 'select
                             	pp.product_version_id,
@@ -179,8 +188,6 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         $lineItem->setPayload([self::TYPE => $setProducts]);
         // format setProducts as a string‚
         $lineItem->setPayload(['line_item_sub_products' => $lineItemSubProducts]);
-
-
     }
 
     /**
@@ -198,12 +205,8 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         // handle all products which stored in root level
         $lineItems = $original
             ->getLineItems()
-            ->filterType(self::TYPE);
+            ->filterFlatByType(self::TYPE);
 
-        /** Debug */
-//        if (count($lineItems->getElements()) > 0) {
-//            $this->logger->log(100, 'SetProductCartProcessor process: ' . self::TYPE );
-//        }
 
         /** @var LineItem $lineItem */
         foreach ($lineItems as $lineItem) {

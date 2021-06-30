@@ -14,6 +14,7 @@ use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemDefinition
 use Shopware\Core\Checkout\Order\OrderEvents;
 use Shopware\Core\Checkout\Order\OrderStates;
 use Shopware\Core\Content\Product\ProductDefinition;
+use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
 use Shopware\Core\Framework\Context;
@@ -71,7 +72,13 @@ class StockUpdater implements EventSubscriberInterface
 
     private $orderStateNotDoneOrCanceled = false;
 
+    /**
+     * @var LineItemStockUpdaterFunctionsInterface[]
+     */
+    private $stockUpdaterFunctionsSupplier;
+
     public const AVAILABLE_STOCK = 'available_stock';
+
     public const STOCK = 'stock';
 
 
@@ -81,7 +88,8 @@ class StockUpdater implements EventSubscriberInterface
         CacheClearer $cache,
         EntityCacheKeyGenerator $cacheKeyGenerator,
         StockUpdaterRelatedProducts $relatedProducts,
-        string $type
+        string $type,
+        iterable $stockUpdaterFunctionsSupplier
     )
     {
         $this->connection = $connection;
@@ -90,6 +98,7 @@ class StockUpdater implements EventSubscriberInterface
         $this->cacheKeyGenerator = $cacheKeyGenerator;
         $this->relatedProducts = $relatedProducts;
         $this->type = $type;
+        $this->stockUpdaterFunctionsSupplier = $stockUpdaterFunctionsSupplier;
     }
 
     /**
@@ -402,27 +411,57 @@ class StockUpdater implements EventSubscriberInterface
 
     public function orderPlaced(CheckoutOrderPlacedEvent $event): void
     {
+        /*
+         * Check CartOrderRoute->order()
+         * - persistOrder
+         *  - convert Cart to Order (CartConverted Event)
+         * - fetch new Order from DB
+         * - pass it to the event
+         *
+         * ToDo: StockUpdater->orderPlaced...
+         * - get SubProducts from LineItem
+         * - write them to Db
+         * - calculate available stock
+         */
 
-        $refIds = [];
-        $ids = [];
+        $productIds = [];
+        $subProductIds = [];
 
-        /** @var LineItem $lineItem */
-        foreach ($event->getOrder()->getLineItems() as $lineItem) {
-            // Same type check as in SW StockUpdater
-            if ($lineItem->getType() !== $this->type) {
-                continue;
+        foreach ($this->stockUpdaterFunctionsSupplier as $supplier) {
+            foreach ($event->getOrder()->getLineItems() as $lineItem) {
+
+                // each supplier handles its own type
+                if ($lineItem->getType() !== $supplier->getLineItemType()) {
+                    continue;
+                }
+
+                /*
+                 * supplier->action()
+                 * - essential properties for stock calculation & hierarchical displayinf
+                 * - order_line_item:
+                 *      | id
+                 *      | order_id
+                 *      | ~~parentid~~
+                 *      | quantity
+                 *      | label
+                 *      | price
+                 *      | type
+                 *      | payload
+                 *
+                 *  - set_product_order_line_item_product
+                 *      | id
+                 *      | order_id
+                 *      | line_item_id
+                 *      | parent_id
+                 *      | product_id
+                 *      | quantity
+                 */
+
+
+
+
+
             }
-
-            Utils::log($this->type . ' stock updates wil be executed');
-
-            $refId = $lineItem->getReferencedId();
-            $refIds[] = $refId;
-
-            // get lineItem ids and the referenced products for advanced stock calculation
-            $ids[] = [
-                'id' => $lineItem->getId(),
-                'referencedId' => $refId
-            ];
         }
 
         // missing line in SW Stock updater - hence update() is invoked with empty array.
@@ -430,9 +469,9 @@ class StockUpdater implements EventSubscriberInterface
             return;
         }
 
-        $this->relatedProducts->updateRelatedProductsOnOrderPlaced($ids, $event->getContext());
-        $this->update($refIds, $event->getContext());
-        $this->clearCache($refIds);
+        //$this->update($refIds, $event->getContext());
+        //$this->relatedProducts->updateRelatedProductsOnOrderPlaced($ids, $event->getContext());
+        //$this->clearCache($refIds);
     }
 
 
