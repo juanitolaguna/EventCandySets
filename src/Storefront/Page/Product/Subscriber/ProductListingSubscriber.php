@@ -5,7 +5,6 @@ namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 use EventCandy\Sets\Core\Checkout\Cart\SubProductQuantityInCartReducerInterface;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
 use EventCandy\Sets\Core\SetProductLoadedEvent;
-use EventCandyCandyBags\Utils;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
 use Shopware\Core\Checkout\Cart\Exception\CartTokenNotFoundException;
@@ -34,6 +33,11 @@ class ProductListingSubscriber implements EventSubscriberInterface
     private $productProductRepository;
 
     /**
+     * @var EntityRepositoryInterface
+     */
+    private $productRepository;
+
+    /**
      * @var CartPersisterInterface
      */
     private $persister;
@@ -49,7 +53,6 @@ class ProductListingSubscriber implements EventSubscriberInterface
     private $eventDispatcher;
 
 
-
     /**
      * ProductListingSubscriber constructor.
      * @param EntityRepositoryInterface $productProductRepository
@@ -57,9 +60,10 @@ class ProductListingSubscriber implements EventSubscriberInterface
      * @param SubProductQuantityInCartReducerInterface[] $cartReducer
      * @param EventDispatcherInterface $eventDispatcher
      */
-    public function __construct(EntityRepositoryInterface $productProductRepository, CartPersisterInterface $persister, iterable $cartReducer, EventDispatcherInterface $eventDispatcher)
+    public function __construct(EntityRepositoryInterface $productProductRepository, EntityRepositoryInterface $productRepository, CartPersisterInterface $persister, iterable $cartReducer, EventDispatcherInterface $eventDispatcher)
     {
         $this->productProductRepository = $productProductRepository;
+        $this->productRepository = $productRepository;
         $this->persister = $persister;
         $this->cartReducer = $cartReducer;
         $this->eventDispatcher = $eventDispatcher;
@@ -87,6 +91,8 @@ class ProductListingSubscriber implements EventSubscriberInterface
                 && $product->getCustomFields()['ec_is_set'];
             if ($keyIsTrue) {
                 $this->enrichProduct($product, $event->getContext());
+            } else {
+                $this->enrichProduct($product, $event->getContext(), true);
             }
         }
     }
@@ -99,45 +105,25 @@ class ProductListingSubscriber implements EventSubscriberInterface
                 && $product->getCustomFields()['ec_is_set'];
             if ($keyIsTrue) {
                 $this->enrichProduct($product, $event->getSalesChannelContext());
+            } else {
+                $this->enrichProduct($product, $event->getSalesChannelContext(), true);
             }
+
+
         }
 
     }
 
-    private function enrichProduct(ProductEntity $product, SalesChannelContext $context)
+    private function enrichProduct(ProductEntity $product, SalesChannelContext $context, $isNormalProduct = false)
     {
 
         // get related products
         $productId = $product->getId();
-        $accQuantity = $this->getAvailableStock($productId, $context);
-
-        Utils::log("... " . $accQuantity);
+        $accQuantity = $this->getAvailableStock($productId, $context, true, $isNormalProduct);
 
         $product->setAvailableStock((int)$accQuantity);
+        $this->setAvailability($product, $accQuantity);
 
-
-        // set calculated purchase quantity gen min(uservalue)
-        $maxPurchase = $product->getMaxPurchase();
-        if ($product instanceof SalesChannelProductEntity) {
-            if ($maxPurchase !== null) {
-                $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
-                $product->setCalculatedMaxPurchase($min);
-            } else {
-                $product->setCalculatedMaxPurchase((int)$accQuantity);
-            }
-        }
-
-
-        $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
-
-        //set flags based on quantity
-        if ($accQuantity < $minPurchase) {
-            $product->setAvailable(false);
-            $product->setIsCloseout(true);
-        } else {
-            $product->setAvailable(true);
-            $product->setIsCloseout(false);
-        }
     }
 
 
@@ -150,7 +136,7 @@ class ProductListingSubscriber implements EventSubscriberInterface
      * @param bool $includeCart
      * @return int
      */
-    public function getAvailableStock(string $mainProduct, SalesChannelContext $context, bool $includeCart = true): int
+    public function getAvailableStock(string $mainProduct, SalesChannelContext $context, bool $includeCart = true, bool $isNormalProduct = false): int
     {
         // load cart
         try {
@@ -162,7 +148,11 @@ class ProductListingSubscriber implements EventSubscriberInterface
 
 
         $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('setProductId', $mainProduct));
+        if ($isNormalProduct) {
+            $criteria->addFilter(new EqualsFilter('productId', $mainProduct));
+        } else {
+            $criteria->addFilter(new EqualsFilter('setProductId', $mainProduct));
+        }
 
         if ($includeCart && $hasLineItems) {
             $criteria->addAssociation('product.masterProductsJoinTable');
@@ -218,5 +208,35 @@ class ProductListingSubscriber implements EventSubscriberInterface
         }
 
         return $subProductQuantityInCart;
+    }
+
+    /**
+     * @param ProductEntity $product
+     * @param int $accQuantity
+     */
+    private function setAvailability(ProductEntity $product, int $accQuantity): void
+    {
+        // set calculated purchase quantity gen min(uservalue)
+        $maxPurchase = $product->getMaxPurchase();
+        if ($product instanceof SalesChannelProductEntity) {
+            if ($maxPurchase !== null) {
+                $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
+                $product->setCalculatedMaxPurchase($min);
+            } else {
+                $product->setCalculatedMaxPurchase((int)$accQuantity);
+            }
+        }
+
+
+        $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
+
+        //set flags based on quantity
+        if ($accQuantity < $minPurchase) {
+            $product->setAvailable(false);
+            $product->setIsCloseout(true);
+        } else {
+            $product->setAvailable(true);
+            $product->setIsCloseout(false);
+        }
     }
 }
