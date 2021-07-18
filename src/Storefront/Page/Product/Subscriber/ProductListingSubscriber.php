@@ -60,7 +60,13 @@ class ProductListingSubscriber implements EventSubscriberInterface
      * @param SubProductQuantityInCartReducerInterface[] $cartReducer
      * @param EventDispatcherInterface $eventDispatcher
      */
-    public function __construct(EntityRepositoryInterface $productProductRepository, EntityRepositoryInterface $productRepository, CartPersisterInterface $persister, iterable $cartReducer, EventDispatcherInterface $eventDispatcher)
+    public function __construct(
+        EntityRepositoryInterface $productProductRepository,
+        EntityRepositoryInterface $productRepository,
+        CartPersisterInterface $persister,
+        iterable $cartReducer,
+        EventDispatcherInterface $eventDispatcher
+    )
     {
         $this->productProductRepository = $productProductRepository;
         $this->productRepository = $productRepository;
@@ -119,7 +125,8 @@ class ProductListingSubscriber implements EventSubscriberInterface
 
         // get related products
         $productId = $product->getId();
-        $accQuantity = $this->getAvailableStock($productId, $context, true, $isNormalProduct);
+        $accQuantity = $this->getAvailableStock($productId, $context, true, $isNormalProduct,
+            $product->getAvailableStock());
 
         $product->setAvailableStock((int)$accQuantity);
         $this->setAvailability($product, $accQuantity);
@@ -134,9 +141,17 @@ class ProductListingSubscriber implements EventSubscriberInterface
      * @param string $mainProduct
      * @param SalesChannelContext $context
      * @param bool $includeCart
+     * @param bool $isNormalProduct
+     * @param int $availableStock
      * @return int
      */
-    public function getAvailableStock(string $mainProduct, SalesChannelContext $context, bool $includeCart = true, bool $isNormalProduct = false): int
+    public function getAvailableStock(
+        string $mainProduct,
+        SalesChannelContext $context,
+        bool $includeCart = true,
+        bool $isNormalProduct = false,
+        int $availableStock = 0
+    ): int
     {
         // load cart
         try {
@@ -163,7 +178,7 @@ class ProductListingSubscriber implements EventSubscriberInterface
         $result = $this->productProductRepository->search($criteria, $context->getContext());
 
         if ($result->getTotal() === 0) {
-            return 0;
+            return $availableStock;
         }
 
 
@@ -194,7 +209,12 @@ class ProductListingSubscriber implements EventSubscriberInterface
      * @param SalesChannelContext $context
      * @return int
      */
-    private function getSubProductQuantityInCart(ProductProductEntity $pp, string $mainProduct, Cart $cart, SalesChannelContext $context): int
+    private function getSubProductQuantityInCart(
+        ProductProductEntity $pp,
+        string $mainProduct,
+        Cart $cart,
+        SalesChannelContext $context
+    ): int
     {
         $subProductQuantityInCart = 0;
         //each masterProduct related to subProduct
@@ -203,7 +223,8 @@ class ProductListingSubscriber implements EventSubscriberInterface
             $relatedMainId = $relatedMainProduct->get('setProductId');
             $subProductQuantity = $relatedMainProduct->get('quantity');
             foreach ($this->cartReducer as $reducer) {
-                $subProductQuantityInCart += $reducer->reduce($cart, $relatedMainId, $mainProduct, $subProductQuantity, $context);
+                $subProductQuantityInCart += $reducer->reduce($cart, $relatedMainId, $mainProduct, $subProductQuantity,
+                    $context);
             }
         }
 

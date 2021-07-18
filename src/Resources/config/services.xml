@@ -56,8 +56,8 @@
             <argument type="service" id="logger"/>
 
             <!-- inject before product processor (5000) -->
-            <tag name="shopware.cart.processor" priority="7000"/>
-            <tag name="shopware.cart.collector" priority="7000"/>
+            <tag name="shopware.cart.processor" priority="5500"/>
+            <tag name="shopware.cart.collector" priority="5500"/>
         </service>
 
         <service id="EventCandy\Sets\Core\Checkout\Cart\LineItemFactoryHandler\SetProductLineItemFactory">

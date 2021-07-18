@@ -243,23 +243,19 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
 
             if ($available <= 0 || $available < $product->getMinPurchase()) {
                 $original->remove($lineItem->getId());
-
                 $toCalculate->addErrors(
                     new ProductOutOfStockError($product->getId(), (string)$product->getTranslation('name'))
                 );
-
                 continue;
             }
 
             if ($available < $lineItem->getQuantity()) {
                 $lineItem->setQuantity($available);
-
                 $definition->setQuantity($available);
-
-                $toCalculate->addErrors(
-                    new ProductStockReachedError($product->getId(), (string)$product->getTranslation('name'), $available)
-                );
+                //ToDo: prüfen....
+                $lineItem->setPayloadValue('fixed-quantity', microtime(true));
             }
+
 
             $fixedQuantity = $this->fixQuantity($product->getMinPurchase() ?? 1, $lineItem->getQuantity(), $product->getPurchaseSteps() ?? 1);
             if ($lineItem->getQuantity() !== $fixedQuantity) {
@@ -272,8 +268,15 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
 
             $lineItem->setPrice($this->calculator->calculate($definition, $context));
 
+
+            if ((microtime(true) - $lineItem->getPayloadValue('fixed-quantity')) < 5) {
+                $toCalculate->addErrors(
+                    new ProductStockReachedError($product->getId(), (string)$product->getTranslation('name'), $available)
+                );
+            }
             $toCalculate->add($lineItem);
         }
+
 
         $this->featureBuilder->add($lineItems, $data, $context);
     }
