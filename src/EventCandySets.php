@@ -31,9 +31,10 @@ class EventCandySets extends Plugin
         if ($context->keepUserData()) {
             return;
         }
-        $this->customFieldService->deleteCustomFields();
+        //$this->customFieldService->deleteCustomFields();
         $connection = $this->container->get(Connection::class);
         $connection->executeUpdate('DROP TABLE IF EXISTS `ec_product_product`');
+        $connection->executeUpdate('DROP TABLE IF EXISTS `ec_order_line_item_product`');
     }
 
 
