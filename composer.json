@@ -3,13 +3,16 @@
     "description": "EventCandy Sets",
     "type": "shopware-platform-plugin",
     "license": "MIT",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "authors":[
         {
             "name":"Pawel Snatenkov",
             "email": "pawel.snatenkov@protonmail.com"
         }
     ],
+    "require": {
+        "shopware/core": ">=6.4.4.1"
+    },
     "autoload": {
         "psr-4": {
             "EventCandy\\Sets\\": "src/"
