@@ -3,15 +3,13 @@
 namespace EventCandy\Sets\Commands;
 
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\FetchMode;
-use Shopware\Core\Content\Content;
+use League\Flysystem\FileNotFoundException;
+use League\Flysystem\FilesystemInterface;
+use Shopware\Core\Content\Media\Pathname\UrlGeneratorInterface;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotFilter;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -23,15 +21,20 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @package EventCandy\Sets\Commands
  *
  * bin/console ec:utils --tinker=true | less
+ *
+ * Delete All Orders
+ * - bin/console ecs:utils --delete-orders=true
+ * in bash
+ *
+ * find . -name packlist*.pdf -delete
+ * find . -name credit_note*.pdf -delete
+ * find . -name delivery_note*.pdf -delete
+ * find . -name invoice*.pdf -delete
+ * find . -name storno*.pdf -delete
  */
 class EcsCommands extends Command
 {
-    protected static $defaultName = 'ec:utils';
-
-    /**
-     * @var EntityRepositoryInterface
-     */
-    private $productRepository;
+    protected static $defaultName = 'ecs:utils';
 
     /**
      * @var Connection
@@ -40,16 +43,57 @@ class EcsCommands extends Command
 
 
     /**
-     * CreateDemoData constructor.
-     * @param EntityRepositoryInterface $productRepository
-     * @param Connection $connection
+     * @var EntityRepositoryInterface
      */
-    public function __construct(EntityRepositoryInterface $productRepository, Connection $connection)
+    private $mediaRepository;
+
+    /**
+     * @var EntityRepositoryInterface
+     */
+    private $orderRepository;
+
+    /**
+     * @var EntityRepositoryInterface
+     */
+    private $documentRepository;
+
+    /**
+     * @var FilesystemInterface
+     */
+    private $filesystemPrivate;
+
+    /**
+     * @var UrlGeneratorInterface
+     */
+    private $urlGenerator;
+
+    /**
+     * EcsCommands constructor.
+     * @param Connection $connection
+     * @param EntityRepositoryInterface $mediaRepository
+     * @param EntityRepositoryInterface $orderRepository
+     * @param EntityRepositoryInterface $documentRepository
+     * @param FilesystemInterface $filesystemPrivate
+     * @param UrlGeneratorInterface $urlGenerator
+     */
+    public function __construct(
+        Connection $connection,
+        EntityRepositoryInterface $mediaRepository,
+        EntityRepositoryInterface $orderRepository,
+        EntityRepositoryInterface $documentRepository,
+        FilesystemInterface $filesystemPrivate,
+        UrlGeneratorInterface $urlGenerator
+    )
     {
         parent::__construct();
-        $this->productRepository = $productRepository;
         $this->connection = $connection;
+        $this->mediaRepository = $mediaRepository;
+        $this->orderRepository = $orderRepository;
+        $this->documentRepository = $documentRepository;
+        $this->filesystemPrivate = $filesystemPrivate;
+        $this->urlGenerator = $urlGenerator;
     }
+
 
     protected function configure(): void
     {
@@ -60,7 +104,14 @@ class EcsCommands extends Command
                 't',
                 InputOption::VALUE_OPTIONAL,
                 'Tinker around with code',
-                '0');
+                '0')
+            ->setDescription('Plugin Utils & Automation')
+            ->addOption(
+                'delete-orders',
+                'd',
+                InputOption::VALUE_OPTIONAL,
+                'Delete All Orders (inkl Documents)',
+                false);
 
     }
 
@@ -69,55 +120,123 @@ class EcsCommands extends Command
         if ($input->getOption('tinker')) {
             $this->tinker($input, $output);
         }
+
+        if ($input->getOption('delete-orders')) {
+            $this->deleteOrders($input, $output);
+        }
+
+        return 0;
+    }
+
+    private function deleteOrders(InputInterface $input, OutputInterface $output)
+    {
+        $output->writeln('Delete Orders & Documents');
+
+        $sql = "select
+                	*
+                from (
+                	select
+                		d.id as documentId,
+                		m.id as mediaId,
+                		m.file_name,
+                		d.referenced_document_id as referencedDocument
+                	from
+                		`order` o
+                		inner join `document` as d on d.order_id = o.id
+                			and d.order_version_id = o.version_id
+                	left join `media` as m on m.id = d.document_media_file_id
+                		and d.referenced_document_id is not null
+                	union all
+                	select
+                		d.id as documentId,
+                		m.id as mediaId,
+                		m.file_name,
+                		d.referenced_document_id as referencedDocument
+                	from
+                		`order` o
+                	inner join `document` as d on d.order_id = o.id
+                		and d.order_version_id = o.version_id
+                	left join `media` as m on m.id = d.document_media_file_id
+                		and d.referenced_document_id is null) as all_tables
+                order by
+	                referencedDocument desc;";
+
+        $result = $this->connection->fetchAll($sql);
+
+
+        $documents = array_map(function ($keys) {
+            return [
+                'id' => Uuid::fromBytesToHex($keys['documentId']),
+            ];
+        }, $result);
+
+        $this->documentRepository->delete($documents, Context::createDefaultContext());
+
+        $medias = array_map(function ($keys) {
+            if ($keys['mediaId'] == null) return null;
+            return Uuid::fromBytesToHex($keys['mediaId']);
+        }, $result);
+
+
+        $medias = array_values(array_filter($medias));
+        $filesToDelete = [];
+        if (!empty($medias)) {
+            $mediaCriteria = new Criteria($medias);
+            $toDelete = $this->mediaRepository->search($mediaCriteria, Context::createDefaultContext());
+
+            foreach ($toDelete as $mediaEntity) {
+                if (!$mediaEntity->hasFile()) {
+                    continue;
+                }
+                $filesToDelete[] = $this->urlGenerator->getRelativeMediaUrl($mediaEntity);
+            }
+
+            foreach ($filesToDelete as $file) {
+                try {
+                    $this->filesystemPrivate->delete($file);
+                } catch (FileNotFoundException $e) {
+                    //ignore file is already deleted
+                }
+            }
+
+            $deleteMedia = "delete from `media` where media.id in (:mediaIds);";
+            $this->connection->executeQuery($deleteMedia,
+                ['mediaIds' => $medias],
+                ['mediaIds' => Connection::PARAM_STR_ARRAY]
+            );
+        }
+
+
+        $orderSql = "select
+                    	id,
+                    	version_id
+                    from
+                    	`order`
+                    where
+                    	version_id <> :versionId;";
+
+        $orderResult = $this->connection->fetchAll($orderSql, [
+            'versionId' => Defaults::LIVE_VERSION
+        ]);
+
+        $orders = array_map(function ($keys) {
+            return [
+                'id' => Uuid::fromBytesToHex($keys['id']),
+                'versionId' => Uuid::fromBytesToHex($keys['version_id'])
+            ];
+        }, $orderResult);
+        $this->orderRepository->delete($orders, Context::createDefaultContext());
+
+
+        $output->writeln(print_r($filesToDelete, true));
+        $output->writeln(print_r($medias, true));
+        $output->writeln(print_r($documents, true));
     }
 
     private function tinker(InputInterface $input, OutputInterface $output)
     {
-//        $output->writeln('Tinker...');
-//        $criteria = new Criteria();
-//        $criteria->addAssociation('products');
-//
-//        /** @var EntitySearchResult $result */
-//        $result = $this->productRepository->search($criteria, Context::createDefaultContext());
-//
-//        $result->jsonSerialize();
-//        $output->writeln(var_export($result));
-
-//        $sql = "select product_id from ec_order_line_item_product where order_id = unhex('F92F8E69B8F247129E6265DF4AA557FB');";
-//
-//        $this->connection->setFetchMode(FetchMode::ASSOCIATIVE);
-//        $rows = $this->connection->fetchAll(
-//            $sql
-//        );
-        $orderId = 'AFC13F908F8E4EB38B9908E76D04DFD6';
-
-        $sql = "select product_id, quantity from ec_order_line_item_product where order_id = :id and order_version_id = :versionId;";
-        $rows =  $this->connection->fetchAll(
-            $sql,
-            [
-                'id' => Uuid::fromHexToBytes($orderId),
-                'versionId' => Uuid::fromHexToBytes(Defaults::LIVE_VERSION)
-            ]
-        );
-
-        //$rows = array_column($rows, 'product_id');
-//        $rows = array_filter(array_keys(array_flip($rows)));
-//        $rows = array_map(function($row) {
-//            return Uuid::fromBytesToHex($row);
-//        }, $rows);
-
-        $normal = [
-            '6661796371e442949d9a8f8595fbf712',
-            '3f4d16c9646a45b59b2d9751fe10eae6',
-            'b4d100433dd641aa96e909337cbbf800',
-            'a1fa7d50dace44a0806f86327c1a5734'
-        ];
-
-
-
-
-        $output->writeln(print_r($rows, true));
-//        $output->writeln(print_r(Uuid::fromHexToBytesList($normal), true));
-//        $output->writeln(print_r(Uuid::fromHexToBytesList($rows), true));
+        $output->writeln('Write some code here...');
     }
+
+
 }
