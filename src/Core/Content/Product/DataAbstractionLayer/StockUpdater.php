@@ -13,7 +13,6 @@ use Shopware\Core\Content\Test\Product\DataAbstractionLayer\Indexing\ProductStoc
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\Cache\EntityCacheKeyGenerator;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityWriteResult;
@@ -43,11 +42,6 @@ class StockUpdater implements EventSubscriberInterface
      * @var CacheClearer
      */
     private $cache;
-
-    /**
-     * @var EntityCacheKeyGenerator
-     */
-    private $cacheKeyGenerator;
 
 
     /**
@@ -83,7 +77,6 @@ class StockUpdater implements EventSubscriberInterface
      *
      * @param ProductDefinition $definition
      * @param CacheClearer $cache
-     * @param EntityCacheKeyGenerator $cacheKeyGenerator
      * @param iterable $stockUpdaterFunctionsSupplier
      * @param EntityRepositoryInterface $orderLineItemProductRepository
      * @link ProductStockIndexerTest
@@ -92,7 +85,6 @@ class StockUpdater implements EventSubscriberInterface
         Connection $connection,
         ProductDefinition $definition,
         CacheClearer $cache,
-        EntityCacheKeyGenerator $cacheKeyGenerator,
         iterable $stockUpdaterFunctionsSupplier,
         EntityRepositoryInterface $orderLineItemProductRepository
     )
@@ -100,7 +92,6 @@ class StockUpdater implements EventSubscriberInterface
         $this->connection = $connection;
         $this->definition = $definition;
         $this->cache = $cache;
-        $this->cacheKeyGenerator = $cacheKeyGenerator;
         $this->stockUpdaterFunctionsSupplier = $stockUpdaterFunctionsSupplier;
         $this->orderLineItemProductRepository = $orderLineItemProductRepository;
     }
@@ -194,7 +185,6 @@ class StockUpdater implements EventSubscriberInterface
         }
 
         $this->update($ids, $event->getContext());
-        $this->clearCache($ids);
         $this->productIds = [];
         $event->stopPropagation();
     }
@@ -233,7 +223,6 @@ class StockUpdater implements EventSubscriberInterface
             );
             $this->updateAvailableStockAndSales($products, $event->getContext());
             $this->updateAvailableFlag($products, $event->getContext());
-            $this->clearCache($products);
             return;
         }
     }
@@ -250,7 +239,6 @@ class StockUpdater implements EventSubscriberInterface
 
         $this->updateAvailableFlag($ids, $event->getContext());
 
-        $this->clearCache($ids);
     }
 
     private function decreaseStock(StateMachineTransitionEvent $event): void
@@ -265,7 +253,6 @@ class StockUpdater implements EventSubscriberInterface
 
         $this->updateAvailableFlag($ids, $event->getContext());
 
-        $this->clearCache($ids);
     }
 
 
@@ -311,7 +298,6 @@ class StockUpdater implements EventSubscriberInterface
         );
 
         $this->update($productIds, $event->getContext());
-        $this->clearCache($productIds);
     }
 
     public function getAllProductsOfOrder(string $orderId): array
@@ -484,19 +470,5 @@ class StockUpdater implements EventSubscriberInterface
         $ids = $event->getPrimaryKeys(ProductDefinition::ENTITY_NAME);
         $this->updateAvailableStockAndSales($ids, $event->getContext());
         $this->updateAvailableFlag($ids, $event->getContext());
-        $this->clearCache($ids);
-    }
-
-    private function clearCache(array $ids): void
-    {
-        $tags = [];
-        foreach ($ids as $id) {
-            $tags[] = $this->cacheKeyGenerator->getEntityTag($id, $this->definition->getEntityName());
-        }
-        $tags[] = $this->cacheKeyGenerator->getFieldTag($this->definition, 'id');
-        $tags[] = $this->cacheKeyGenerator->getFieldTag($this->definition, 'available');
-        $tags[] = $this->cacheKeyGenerator->getFieldTag($this->definition, 'availableStock');
-        $tags[] = $this->cacheKeyGenerator->getFieldTag($this->definition, 'stock');
-        $this->cache->invalidateTags($tags);
     }
 }

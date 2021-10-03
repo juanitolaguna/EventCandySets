@@ -3,6 +3,7 @@
 namespace EventCandy\Sets\Core\Checkout\Cart;
 
 use Doctrine\DBAL\Connection;
+use ErrorException;
 use EventCandy\LabelMe\Core\Checkout\Cart\EclmCartProcessor;
 use EventCandyCandyBags\Core\Checkout\Cart\CandyBagsCartProcessor;
 use Psr\Log\LoggerInterface;
@@ -13,18 +14,21 @@ use Shopware\Core\Checkout\Cart\CartProcessorInterface;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryInformation;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryTime;
 use Shopware\Core\Checkout\Cart\Exception\MissingLineItemPriceException;
+use Shopware\Core\Checkout\Cart\Exception\OrderRecalculationException;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Checkout\Cart\LineItem\QuantityInformation;
 use Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator;
+use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
 use Shopware\Core\Checkout\Cart\Price\Struct\QuantityPriceDefinition;
+use Shopware\Core\Checkout\Cart\Price\Struct\ReferencePriceDefinition;
 use Shopware\Core\Content\Product\Cart\ProductFeatureBuilder;
 use Shopware\Core\Content\Product\Cart\ProductGatewayInterface;
 use Shopware\Core\Content\Product\Cart\ProductNotFoundError;
 use Shopware\Core\Content\Product\Cart\ProductOutOfStockError;
 use Shopware\Core\Content\Product\Cart\ProductStockReachedError;
 use Shopware\Core\Content\Product\Cart\PurchaseStepsError;
-use Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface;
+use Shopware\Core\Content\Product\SalesChannel\Price\AbstractProductPriceCalculator;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Struct\ArrayStruct;
@@ -50,10 +54,6 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
      */
     private $productGateway;
 
-    /**
-     * @var ProductPriceDefinitionBuilderInterface
-     */
-    private $priceDefinitionBuilder;
 
     /**
      * @var QuantityPriceCalculator
@@ -75,21 +75,23 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
      */
     private $logger;
 
+    private AbstractProductPriceCalculator $priceCalculator;
+
     public function __construct(
         ProductGatewayInterface $productGateway,
         QuantityPriceCalculator $calculator,
-        ProductPriceDefinitionBuilderInterface $priceDefinitionBuilder,
         ProductFeatureBuilder $featureBuilder,
         Connection $connection,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        AbstractProductPriceCalculator $priceCalculator
     )
     {
         $this->productGateway = $productGateway;
-        $this->priceDefinitionBuilder = $priceDefinitionBuilder;
         $this->calculator = $calculator;
         $this->featureBuilder = $featureBuilder;
         $this->connection = $connection;
         $this->logger = $logger;
+        $this->priceCalculator = $priceCalculator;
     }
 
     public function collect(
@@ -338,9 +340,9 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         //Check if the price has to be updated
         if ($this->shouldPriceBeRecalculated($lineItem, $behavior)) {
             //In Case keep original Price of Product
-            $prices = $this->priceDefinitionBuilder->build($product, $context, $lineItem->getQuantity());
+            //$prices = $this->priceDefinitionBuilder->build($product, $context, $lineItem->getQuantity());
 
-            $lineItem->setPriceDefinition($prices->getQuantityPrice());
+            $lineItem->setPriceDefinition($this->getPriceDefinition($product, $context, $lineItem->getQuantity()));
         }
 
         $quantityInformation = new QuantityInformation();
@@ -476,5 +478,53 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
     private function fixQuantity(int $min, int $current, int $steps): int
     {
         return (int)(floor(($current - $min) / $steps) * $steps + $min);
+    }
+
+    private function getPriceDefinition(
+        SalesChannelProductEntity $product,
+        SalesChannelContext $context,
+        int $quantity
+    ): QuantityPriceDefinition
+    {
+        $this->priceCalculator->calculate([$product], $context);
+
+        if ($product->getCalculatedPrices()->count() === 0) {
+            return $this->buildPriceDefinition($product->getCalculatedPrice(), $quantity);
+        }
+
+        // keep loop reference to $price variable to get last quantity price in case of "null"
+        $price = $product->getCalculatedPrice();
+        foreach ($product->getCalculatedPrices() as $price) {
+            if ($quantity <= $price->getQuantity()) {
+                break;
+            }
+        }
+
+        return $this->buildPriceDefinition($price, $quantity);
+
+
+    }
+
+    private function buildPriceDefinition(
+        CalculatedPrice $price,
+        int $quantity
+    ): QuantityPriceDefinition
+    {
+        $definition = new QuantityPriceDefinition($price->getUnitPrice(), $price->getTaxRules(), $quantity);
+        if ($price->getListPrice() !== null) {
+            $definition->setListPrice($price->getListPrice()->getPrice());
+        }
+
+        if ($price->getReferencePrice() !== null) {
+            $definition->setReferencePriceDefinition(
+                new ReferencePriceDefinition(
+                    $price->getReferencePrice()->getPurchaseUnit(),
+                    $price->getReferencePrice()->getReferenceUnit(),
+                    $price->getReferencePrice()->getUnitName()
+                )
+            );
+        }
+
+        return $definition;
     }
 }

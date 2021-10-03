@@ -12,41 +12,6 @@
     </sw-alert>
 
     {% parent() %}
-{% endblock %}
-
-{% block sw_product_detail_base_price_form %}
-    <sw-alert style="max-width:800px;" class="eclm-order-info" v-if="belongsToSet" variant="info"
-              appearance="default" :showIcon="true"
-              :closable="false">
-        <span style="font-size: 1.1em"><strong>[Lagerartikel] </strong>&nbsp;Preisangabe wird bei Lagerartikel ignoriert.
-            <br> Der Preis soll im zugehörigem Verkaufsartikel angegeben werden.</span>
-    </sw-alert>
-
-    {% parent() %}
-{% endblock %}
-
- {% block sw_product_detail_deliverability_info_form %}
-     <sw-alert
-             variant="warning"
-             appearance="default"
-             :showIcon="true"
-             :closable="false"
-             v-if="isSetActive"
-     >
-         <span style="font-size: 1.1em"><strong>[Stückliste]</strong> Kalkulierter Verfügbarer Bestand: <strong>{{ setAvailableStock }}</strong></span>
-     </sw-alert>
-
-     {% parent() %}
- {% endblock %}
-
- {% block sw_product_detail_base_category_form %}
-     <sw-product-category-form :belongsToSet="belongsToSet"
-                               :allowEdit="acl.can('product.editor')"></sw-product-category-form>
- {% endblock %}
-
-
-{% block sw_product_detail_attribute_sets %}
-    {% parent() %}
 
     <ec-many-to-many-assignment-card
             v-if="product.extensions && product.extensions.products && !belongsToSet"
@@ -92,9 +57,34 @@
 
         <br><span v-if="isSetActive">Immer noch nicht ;)</span>
     </sw-alert>
-
-
-
-
-
 {% endblock %}
+
+{% block sw_product_detail_base_price_form %}
+    <sw-alert style="max-width:800px;" class="eclm-order-info" v-if="belongsToSet" variant="info"
+              appearance="default" :showIcon="true"
+              :closable="false">
+        <span style="font-size: 1.1em"><strong>[Lagerartikel] </strong>&nbsp;Preisangabe wird bei Lagerartikel ignoriert.
+            <br> Der Preis soll im zugehörigem Verkaufsartikel angegeben werden.</span>
+    </sw-alert>
+
+    {% parent() %}
+{% endblock %}
+
+ {% block sw_product_detail_deliverability_info_form %}
+     <sw-alert
+             variant="warning"
+             appearance="default"
+             :showIcon="true"
+             :closable="false"
+             v-if="isSetActive"
+     >
+         <span style="font-size: 1.1em"><strong>[Stückliste]</strong> Kalkulierter Verfügbarer Bestand: <strong>{{ setAvailableStock }}</strong></span>
+     </sw-alert>
+
+     {% parent() %}
+ {% endblock %}
+
+ {% block sw_product_detail_base_category_form %}
+     <sw-product-category-form :belongsToSet="belongsToSet"
+                               :allowEdit="acl.can('product.editor')"></sw-product-category-form>
+ {% endblock %}

@@ -1,8 +1,8 @@
 import template from './sw-product-detail-base.html.twig';
-import Criteria from 'src/core/data-new/criteria.data';
-
+const Criteria = Shopware.Data.Criteria;
 const {Component, Context} = Shopware;
 Component.override('sw-product-detail-base', {
+    inject: ['repositoryFactory'],
     template,
 
     data() {
@@ -87,3 +87,4 @@ Component.override('sw-product-detail-base', {
     }
 
 });
+
