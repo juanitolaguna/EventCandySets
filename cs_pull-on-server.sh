@@ -2,7 +2,7 @@
 
 . .env
 
-ssh $USER@$REMOTE 'git -C '$PLUGINPATH' pull origin main'
+ssh $USER@$REMOTE 'git -C '$PLUGINPATH' pull origin master'
 #copies the js, makes migrations, executes update()
 ssh $USER@$REMOTE 'sudo -u www-data '$BINPATH'/bin/console plugin:update '$PLUGINNAME
 

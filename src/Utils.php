@@ -4,7 +4,7 @@ namespace EventCandy\Sets;
 
 class Utils
 {
-    const LOGGING = false;
+    const LOGGING = true;
 
     public static function log($message)
     {
