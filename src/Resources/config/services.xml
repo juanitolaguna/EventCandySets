@@ -5,6 +5,17 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
+        <!-- Pickware DHL decoration -->
+        <service id="EventCandy\Sets\Decorators\PickwareDhlParcelHydratorDecorator"
+                 decorates="Pickware\ShippingBundle\ParcelHydration\ParcelHydrator">
+
+            <argument type="service" id="EventCandy\Sets\Decorators\PickwareDhlParcelHydratorDecorator.inner"/>
+            <argument id="Pickware\DalBundle\EntityManager" type="service"/>
+            <argument id="Pickware\DalBundle\ContextFactory" type="service"/>
+            <argument type="tagged" tag="ec.sets.stock_updater_functions"/>
+        </service>
+
+
         <!-- CustomFieldService -->
 
         <service id="EventCandy\Sets\CustomFieldService">
@@ -23,13 +34,9 @@
             <tag name="shopware.entity.definition" entity="ec_order_line_item_product"/>
         </service>
 
-        <!--        Calculates Set Prices before Product is loaded to Storefront -->
-        <!--        <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\PriceProductListingSubscriber">-->
-        <!--            <argument type="service" id="ec_product_product.repository"/>-->
-        <!--            <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>-->
-        <!--            <argument type="service" id="Shopware\Core\Content\Product\SalesChannel\Price\ProductPriceDefinitionBuilderInterface"/>-->
-        <!--            <tag name="kernel.event_subscriber"/>-->
-        <!--        </service>-->
+        <service id="EventCandy\Sets\Core\Content\OrderLineItem\OrderLineItemExtension">
+            <tag name="shopware.entity.extension"/>
+        </service>
 
 
         <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">

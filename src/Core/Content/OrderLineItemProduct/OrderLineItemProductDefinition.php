@@ -33,6 +33,15 @@ class OrderLineItemProductDefinition extends EntityDefinition
         return OrderLineItemProductCollection::class;
     }
 
+    /**
+     * @return string
+     */
+    public function getEntityClass(): string
+    {
+        return OrderLineItemProductEntity::class;
+    }
+
+
 
     protected function defineFields(): FieldCollection
     {
@@ -54,7 +63,8 @@ class OrderLineItemProductDefinition extends EntityDefinition
 
             new FkField('order_line_item_id', 'orderLineItemId', OrderLineItemDefinition::class),
             (new ReferenceVersionField(OrderLineItemDefinition::class))->addFlags(new Required()),
-            new OneToOneAssociationField('orderLineItem', 'order_line_item_id', 'id', OrderLineItemDefinition::class, false)
+            //new OneToOneAssociationField('orderLineItem', 'order_line_item_id', 'id', OrderLineItemDefinition::class, false)
+            new ManyToOneAssociationField('orderLineItem', 'order_line_item_id', OrderLineItemDefinition::class, 'id', false)
         ]);
 
     }
