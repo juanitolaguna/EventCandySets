@@ -9,6 +9,7 @@ use Shopware\Core\Checkout\Order\OrderDefinition;
 use Shopware\Core\Checkout\Order\OrderEvents;
 use Shopware\Core\Checkout\Order\OrderStates;
 use Shopware\Core\Content\Product\ProductDefinition;
+use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Content\Test\Product\DataAbstractionLayer\Indexing\ProductStockIndexerTest;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Adapter\Cache\CacheClearer;
@@ -18,6 +19,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityWriteResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenEvent;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\DeleteCommand;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Validation\PreWriteValidationEvent;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -51,6 +53,12 @@ class StockUpdater implements EventSubscriberInterface
 
 
     /**
+     * @var EntityRepositoryInterface
+     */
+    private $productRepository;
+
+
+    /**
      * @var LineItemStockUpdaterFunctionsInterface[]
      */
     private $stockUpdaterFunctionsSupplier;
@@ -69,7 +77,8 @@ class StockUpdater implements EventSubscriberInterface
      * + stock updates for all state changes
      * + stock updates for order deletion
      * + stock updates on product stock updates
-     * ToDo: StockUpdater... @param Connection $connection
+     * ToDo: StockUpdater...
+     * @param Connection $connection
      * - stock updates on lineItem change
      * - stock updates on lineItem quantity change
      * - stock updates on adding new LineItem
@@ -79,14 +88,15 @@ class StockUpdater implements EventSubscriberInterface
      * @param CacheClearer $cache
      * @param iterable $stockUpdaterFunctionsSupplier
      * @param EntityRepositoryInterface $orderLineItemProductRepository
-     * @link ProductStockIndexerTest
+     * @param EntityRepositoryInterface $productRepository @link ProductStockIndexerTest
      */
     public function __construct(
         Connection $connection,
         ProductDefinition $definition,
         CacheClearer $cache,
         iterable $stockUpdaterFunctionsSupplier,
-        EntityRepositoryInterface $orderLineItemProductRepository
+        EntityRepositoryInterface $orderLineItemProductRepository,
+        EntityRepositoryInterface $productRepository
     )
     {
         $this->connection = $connection;
@@ -94,6 +104,7 @@ class StockUpdater implements EventSubscriberInterface
         $this->cache = $cache;
         $this->stockUpdaterFunctionsSupplier = $stockUpdaterFunctionsSupplier;
         $this->orderLineItemProductRepository = $orderLineItemProductRepository;
+        $this->productRepository = $productRepository;
     }
 
     /**
@@ -282,7 +293,7 @@ class StockUpdater implements EventSubscriberInterface
                     continue;
                 }
                 // extract all Products & SubProducts from LineItem
-                // to an write ready array for OrderLineItemProduct
+                // to a write ready array for OrderLineItemProduct
                 $orderLineItemProductsNew = $supplier->createOrderLineItemProducts($lineItem, $event);
                 $orderLineItemProducts = array_merge($orderLineItemProducts, $orderLineItemProductsNew);
             }
@@ -302,11 +313,11 @@ class StockUpdater implements EventSubscriberInterface
 
     public function getAllProductsOfOrder(string $orderId): array
     {
-        $sql = "select product_id, sum(quantity) as quantity from 
-                    (select product_id, quantity 
+        $sql = "select product_id, sum(quantity), parent_id as quantity from 
+                    (select product_id, quantity, parent_id
                     from ec_order_line_item_product where order_id = :id and order_version_id = :versionId
                     union all
-                    select product_id, quantity 
+                    select product_id, quantity, '---' 
                     from order_line_item where order_id = :id and order_version_id = :versionId 
                     and product_id is not null and type = :type) as all_tables
                     group by product_id";
@@ -342,7 +353,15 @@ class StockUpdater implements EventSubscriberInterface
         if ($context->getVersionId() !== Defaults::LIVE_VERSION) {
             return;
         }
+        // Update stock & sales for MainProduct in Order
+        // Update stock & sales for SubProducts in Order
         $this->updateAvailableStockAndSales($ids, $context);
+
+        //ToDo: zwischenspeichern der kombinierten bestände.
+        //Update stock & sales for all main Products in Shop related to SubProducts in order
+        // SubProduct -> get All MainProducts -> update stock & sales of MainProductOnly
+        //$this->updateStockForMainProductsOfPassedSubProducts($ids, $context);
+
         $this->updateAvailableFlag($ids, $context);
     }
 
@@ -355,13 +374,13 @@ class StockUpdater implements EventSubscriberInterface
 
         $bytes = Uuid::fromHexToBytesList($ids);
 
-        $sql = "SELECT all_tables.product_id, 
+            $sql = "SELECT all_tables.product_id, 
                 SUM(all_tables.open_quantity) as open_quantity, 
                 SUM(all_tables.sales_quantity) as sales_quantity
                     FROM(SELECT LOWER(HEX(ec_order_line_item_product.product_id)) as product_id,
                         IFNULL(SUM(IF(state_machine_state.technical_name = :completed_state, 0, ec_order_line_item_product.quantity)),0) as open_quantity,
                         IFNULL(SUM(IF(state_machine_state.technical_name = :completed_state, ec_order_line_item_product.quantity, 0)),0) as sales_quantity
-                    FROM ec_order_line_item_product
+                    FROM ec_order_line_item_product 
                         INNER JOIN `order`
                             ON `order`.id = ec_order_line_item_product.order_id
                             AND `order`.version_id = ec_order_line_item_product.order_version_id
@@ -389,6 +408,8 @@ class StockUpdater implements EventSubscriberInterface
 	                GROUP BY product_id) AS all_tables GROUP BY product_id;";
 
 
+
+
         $rows = $this->connection->fetchAll(
             $sql,
             [
@@ -408,6 +429,7 @@ class StockUpdater implements EventSubscriberInterface
         $fallback = array_diff($ids, $fallback);
 
         $update = new RetryableQuery(
+            $this->connection,
             $this->connection->prepare('UPDATE product SET available_stock = stock - :open_quantity, sales = :sales_quantity, updated_at = :now WHERE id = :id')
         );
 
@@ -444,7 +466,6 @@ class StockUpdater implements EventSubscriberInterface
             LEFT JOIN product parent
                 ON parent.id = product.parent_id
                 AND parent.version_id = product.version_id
-
             SET product.available = IFNULL((
                 IFNULL(product.is_closeout, parent.is_closeout) * product.available_stock
                 >=
@@ -470,5 +491,25 @@ class StockUpdater implements EventSubscriberInterface
         $ids = $event->getPrimaryKeys(ProductDefinition::ENTITY_NAME);
         $this->updateAvailableStockAndSales($ids, $event->getContext());
         $this->updateAvailableFlag($ids, $event->getContext());
+    }
+
+    // Erstmal ohne zwischenspeicher versuchen. Auf sql ebene scheiinen die laufzeiten gut zu sein.
+    private function updateStockForMainProductsOfPassedSubProducts(array $ids, Context $context)
+    {
+        $criteria = new Criteria($ids);
+        $criteria->addAssociation('masterProducts.products');
+
+        $result = $this->productRepository->search($criteria, $context);
+
+        /** @var ProductEntity $subProduct */
+        foreach ($result as $subProduct) {
+            $mainProducts = $subProduct->get('masterProducts');
+            /** @var ProductEntity $mainProduct */
+            foreach ($mainProducts as $mainProduct) {
+                //ToDo: vlt. mit sql?
+                //$this->calculateStockForMainProduct($mainProduct);
+                return;
+            }
+        }
     }
 }

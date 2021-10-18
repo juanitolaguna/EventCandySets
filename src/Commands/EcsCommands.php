@@ -200,7 +200,7 @@ class EcsCommands extends Command
             }
 
             $deleteMedia = "delete from `media` where media.id in (:mediaIds);";
-            $this->connection->executeQuery($deleteMedia,
+            $this->connection->executeStatement($deleteMedia,
                 ['mediaIds' => $medias],
                 ['mediaIds' => Connection::PARAM_STR_ARRAY]
             );

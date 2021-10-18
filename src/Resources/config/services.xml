@@ -41,10 +41,10 @@
 
         <service id="EventCandy\Sets\Storefront\Page\Product\Subscriber\ProductListingSubscriber">
             <argument type="service" id="ec_product_product.repository"/>
-            <argument type="service" id="product.repository"/>
             <argument type="service" id="Shopware\Core\Checkout\Cart\CartPersister"/>
             <argument type="tagged" tag="ec.sets.cart_reducer"/>
             <argument type="service" id="event_dispatcher"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
 
             <tag name="kernel.event_subscriber"/>
         </service>
@@ -79,6 +79,7 @@
             <argument type="service" id="Shopware\Core\Framework\Adapter\Cache\CacheClearer"/>
             <argument type="tagged" tag="ec.sets.stock_updater_functions"/>
             <argument type="service" id="ec_order_line_item_product.repository"/>
+            <argument type="service" id="product.repository"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 

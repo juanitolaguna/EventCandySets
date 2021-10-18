@@ -2,17 +2,23 @@
 
 namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception;
+use ErrorException;
 use EventCandy\Sets\Core\Checkout\Cart\SubProductQuantityInCartReducerInterface;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
 use EventCandy\Sets\Core\SetProductLoadedEvent;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
 use Shopware\Core\Checkout\Cart\Exception\CartTokenNotFoundException;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
+use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\Entity\SalesChannelEntityLoadedEvent;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -33,11 +39,6 @@ class ProductListingSubscriber implements EventSubscriberInterface
     private $productProductRepository;
 
     /**
-     * @var EntityRepositoryInterface
-     */
-    private $productRepository;
-
-    /**
      * @var CartPersisterInterface
      */
     private $persister;
@@ -52,6 +53,11 @@ class ProductListingSubscriber implements EventSubscriberInterface
      */
     private $eventDispatcher;
 
+    /**
+     * @var Connection
+     */
+    private $connection;
+
 
     /**
      * ProductListingSubscriber constructor.
@@ -59,20 +65,21 @@ class ProductListingSubscriber implements EventSubscriberInterface
      * @param CartPersisterInterface $persister
      * @param SubProductQuantityInCartReducerInterface[] $cartReducer
      * @param EventDispatcherInterface $eventDispatcher
+     * @param Connection $connection
      */
     public function __construct(
         EntityRepositoryInterface $productProductRepository,
-        EntityRepositoryInterface $productRepository,
         CartPersisterInterface $persister,
         iterable $cartReducer,
-        EventDispatcherInterface $eventDispatcher
+        EventDispatcherInterface $eventDispatcher,
+        Connection $connection
     )
     {
         $this->productProductRepository = $productProductRepository;
-        $this->productRepository = $productRepository;
         $this->persister = $persister;
         $this->cartReducer = $cartReducer;
         $this->eventDispatcher = $eventDispatcher;
+        $this->connection = $connection;
     }
 
 
@@ -159,6 +166,12 @@ class ProductListingSubscriber implements EventSubscriberInterface
             $hasLineItems = $cart->getLineItems()->count();
         } catch (CartTokenNotFoundException $e) {
             $hasLineItems = false;
+        }
+
+        if (!$hasLineItems) {
+            if($isNormalProduct) return $availableStock;
+
+            return $this->getAvailableStockWithSQL($mainProduct, $context->getContext());
         }
 
 
@@ -259,5 +272,34 @@ class ProductListingSubscriber implements EventSubscriberInterface
             $product->setAvailable(true);
             $product->setIsCloseout(false);
         }
+    }
+
+    private function getAvailableStockWithSQL(string $productId, Context $context)
+    {
+
+        $sql = "select
+                	floor(min(stock)) as stock,
+                	floor(min(available_stock)) as available_stock
+                from (
+                	select
+                		(subProduct.stock / pp.quantity) as stock,
+                		(subProduct.available_stock / pp.quantity) as available_stock,
+                		pp.quantity
+                	from
+                		product as subProduct
+                		inner join ec_product_product as pp on subProduct.id = pp.product_id and subProduct.version_id = pp.product_version_id
+                	where
+                		pp.set_product_id = :productId and pp.product_version_id = :version) as calculated;";
+
+        try {
+            $result = $this->connection->fetchAssociative($sql, [
+                'productId' => Uuid::fromHexToBytes($productId),
+                'version' => Uuid::fromHexToBytes($context->getVersionId())
+            ]);
+        } catch (Exception $e) {
+            throw new ErrorException($e->getMessage());
+        }
+
+        return (int) $result['available_stock'];
     }
 }
