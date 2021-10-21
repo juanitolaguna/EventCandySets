@@ -83,6 +83,13 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
+
+
+        <service id="EventCandy\Sets\Core\Subscriber\AdminProductSubscriber">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <!-- LineItemFunctions -->
         <service id="EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\SetProductLineItemStockUpdaterFunctions">
             <tag name="ec.sets.stock_updater_functions"/>
