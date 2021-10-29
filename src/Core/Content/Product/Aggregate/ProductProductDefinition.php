@@ -17,9 +17,11 @@ use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 
 class ProductProductDefinition extends EntityDefinition
 {
+    public const ENTITY_NAME = 'ec_product_product';
+
     public function getEntityName(): string
     {
-        return 'ec_product_product';
+        return self::ENTITY_NAME;
     }
 
     public function getCollectionClass(): string

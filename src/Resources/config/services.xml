@@ -7,14 +7,14 @@
     <services>
         <!-- Pickware DHL decoration -->
         <service id="EventCandy\Sets\Decorators\PickwareDhlParcelHydratorDecorator"
-                 decorates="Pickware\ShippingBundle\ParcelHydration\ParcelHydrator">
+                 decorates="Pickware\ShippingBundle\ParcelHydration\ParcelHydrator"
+                 decoration-on-invalid="ignore">
 
             <argument type="service" id="EventCandy\Sets\Decorators\PickwareDhlParcelHydratorDecorator.inner"/>
             <argument id="Pickware\DalBundle\EntityManager" type="service"/>
             <argument id="Pickware\DalBundle\ContextFactory" type="service"/>
             <argument type="tagged" tag="ec.sets.stock_updater_functions"/>
         </service>
-
 
         <!-- CustomFieldService -->
 
