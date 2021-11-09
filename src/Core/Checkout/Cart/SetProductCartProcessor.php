@@ -31,6 +31,7 @@ use Shopware\Core\Content\Product\Cart\PurchaseStepsError;
 use Shopware\Core\Content\Product\SalesChannel\Price\AbstractProductPriceCalculator;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Defaults;
+use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Struct\ArrayStruct;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -146,6 +147,12 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                     return;
                 }
         */
+        // ToDo: Insert Products Into CartProductTable
+        $accessorQuery = new RetryableQuery(
+            $this->connection,
+            $this->connection->prepare('UPDATE product SET cheapest_price_accessor = :accessor WHERE id = :id AND version_id = :version^')
+        );
+
 
 
         $sqlSetProducts = 'select
@@ -162,7 +169,7 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                             	pp.set_product_id = :id
                             	and pt.language_id = :languageId';
 
-        $rows = $this->connection->fetchAll(
+        $rows = $this->connection->fetchAllAssociative(
             $sqlSetProducts,
             [
                 'id' => Uuid::fromHexToBytes($lineItem->getReferencedId()),
