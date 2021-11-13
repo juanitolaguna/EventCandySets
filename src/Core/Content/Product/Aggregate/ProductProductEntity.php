@@ -69,7 +69,7 @@ class ProductProductEntity extends Entity
     /**
      * @param int $quantity
      */
-    public function setQuantity(string $quantity): int
+    public function setQuantity(string $quantity): void
     {
         $this->quantity = $quantity;
     }
