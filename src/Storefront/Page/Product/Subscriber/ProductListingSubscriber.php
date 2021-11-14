@@ -5,6 +5,7 @@ namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
+use Error;
 use ErrorException;
 use EventCandy\Sets\Core\Checkout\Cart\SubProductQuantityInCartReducerInterface;
 use EventCandy\Sets\Core\Content\Product\Aggregate\ProductProductEntity;
@@ -129,8 +130,13 @@ class ProductListingSubscriber implements EventSubscriberInterface
         // get related products
         $productId = $product->getId();
 
-        $cart = $this->persister->load($context->getToken(), $context);
-        $hasLineItems = $cart->getLineItems()->count();
+        try {
+            $cart = $this->persister->load($context->getToken(), $context);
+            $hasLineItems = $cart->getLineItems()->count();
+        } catch (CartTokenNotFoundException $e) {
+            $hasLineItems = false;
+        }
+
 
         if (!$hasLineItems) {
             $accQuantity = $this->getAvailableStockWithSQL($productId, $context->getContext());
