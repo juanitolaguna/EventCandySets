@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace EventCandy\Sets\Storefront\Page\Product\Subscriber;
 
@@ -73,8 +74,7 @@ class ProductListingSubscriber implements EventSubscriberInterface
         iterable $cartReducer,
         EventDispatcherInterface $eventDispatcher,
         Connection $connection
-    )
-    {
+    ) {
         $this->productProductRepository = $productProductRepository;
         $this->persister = $persister;
         $this->cartReducer = $cartReducer;
@@ -121,25 +121,141 @@ class ProductListingSubscriber implements EventSubscriberInterface
             } else {
                 $this->enrichProduct($product, $event->getSalesChannelContext(), true);
             }
-
-
         }
-
     }
 
     private function enrichProduct(ProductEntity $product, SalesChannelContext $context, $isNormalProduct = false)
     {
-
         // get related products
         $productId = $product->getId();
-        $accQuantity = $this->getAvailableStock($productId, $context, true, $isNormalProduct,
-            $product->getAvailableStock());
+
+        $cart = $this->persister->load($context->getToken(), $context);
+        $hasLineItems = $cart->getLineItems()->count();
+
+        if (!$hasLineItems) {
+            $accQuantity = $this->getAvailableStockWithSQL($productId, $context->getContext());
+        } else {
+            $accQuantity = $this->getAvailableStockWithCart($productId, $context);
+        }
+//        $accQuantity = $this->getAvailableStock($productId, $context, true, $isNormalProduct,
+//            $product->getAvailableStock());
 
         $product->setAvailableStock((int)$accQuantity);
         $this->setAvailability($product, $accQuantity);
-
     }
 
+    /**
+     * @param ProductEntity $product
+     * @param int $accQuantity
+     */
+    private function setAvailability(ProductEntity $product, int $accQuantity): void
+    {
+        // set calculated purchase quantity gen min(uservalue)
+        $maxPurchase = $product->getMaxPurchase();
+        if ($product instanceof SalesChannelProductEntity) {
+            if ($maxPurchase !== null) {
+                $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
+                $product->setCalculatedMaxPurchase($min);
+            } else {
+                $product->setCalculatedMaxPurchase((int)$accQuantity);
+            }
+        }
+        $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
+
+        //set flags based on quantity
+        if ($accQuantity < $minPurchase) {
+            $product->setAvailable(false);
+            $product->setIsCloseout(true);
+        } else {
+            $product->setAvailable(true);
+            $product->setIsCloseout(false);
+        }
+    }
+
+    private function getAvailableStockWithSQL(string $productId, Context $context)
+    {
+        $sql = "select
+                	floor(min(stock)) as stock,
+                	floor(min(available_stock)) as available_stock
+                from (
+                	select
+                		(subProduct.stock / pp.quantity) as stock,
+                		(subProduct.available_stock / pp.quantity) as available_stock,
+                		pp.quantity
+                	from
+                		product as subProduct
+                		inner join ec_product_product as pp on subProduct.id = pp.product_id and subProduct.version_id = pp.product_version_id
+                	where
+                		pp.set_product_id = :productId and pp.product_version_id = :version) as calculated;";
+        try {
+            $result = $this->connection->fetchAssociative($sql, [
+                'productId' => Uuid::fromHexToBytes($productId),
+                'version' => Uuid::fromHexToBytes($context->getVersionId())
+            ]);
+        } catch (Exception $e) {
+            throw new ErrorException($e->getMessage());
+        }
+        return (int)$result['available_stock'];
+    }
+
+    private function getAvailableStockWithCart(string $productId, SalesChannelContext $context)
+    {
+        $sql = "SELECT
+                	floor(min(calculatedStock)) AS stock,
+                	floor(min(calculatedAvailableStock)) AS available_stock
+                	FROM
+                (SELECT
+                	token,
+                	subProducts.subProduct,
+                	sum(subProducts.quantity) as quantity,
+                	sum(subProducts.quantityPP) as quantityProProduct,
+                	p.stock,
+                	p.available_stock,
+                	((p.stock / subProducts.quantityPP) - sum(subProducts.quantity)) as calculatedStock,
+                	((p.available_stock / subProducts.quantityPP) - sum(subProducts.quantity)) as calculatedAvailableStock
+                FROM (
+                	SELECT
+                		'---' as token,
+                	    '+++' as line_item_id,
+                		pp.product_id AS subProduct,
+                		0 as quantity,
+                		pp.quantity as quantityPP
+                	FROM
+                		product AS p
+                		INNER JOIN ec_product_product AS pp ON p.id = pp.product_id
+                	WHERE
+                		pp.set_product_id = :product_id
+                	UNION
+                	SELECT
+                		cp.token,
+                	    cp.line_item_id,
+                		cp.sub_product_id AS subProduct,
+                		cp.sub_product_quantity as quantity,
+                		0 as quantityPP
+                	FROM
+                		ec_cart_product cp
+                	WHERE
+                		cp.token = :token
+                		AND cp.product_id != :product_id) AS subProducts
+                	INNER JOIN product AS p ON subProduct = p.id
+                GROUP BY
+                	subProduct) as subproductsGrouped;";
+
+        try {
+            $result = $this->connection->fetchAssociative($sql, [
+                'token' => $context->getToken(),
+                'product_id' => Uuid::fromHexToBytes($productId)
+            ]);
+        } catch (Exception $e) {
+            throw new ErrorException($e->getMessage());
+        }
+
+        return (int)$result['available_stock'];
+    }
+
+
+
+    //===============================OLD==============================//
 
     /**
      * method used in other classes
@@ -158,8 +274,7 @@ class ProductListingSubscriber implements EventSubscriberInterface
         bool $includeCart = true,
         bool $isNormalProduct = false,
         int $availableStock = 0
-    ): int
-    {
+    ): int {
         // load cart
         try {
             $cart = $this->persister->load($context->getToken(), $context);
@@ -169,7 +284,9 @@ class ProductListingSubscriber implements EventSubscriberInterface
         }
 
         if (!$hasLineItems) {
-            if($isNormalProduct) return $availableStock;
+            if ($isNormalProduct) {
+                return $availableStock;
+            }
 
             return $this->getAvailableStockWithSQL($mainProduct, $context->getContext());
         }
@@ -200,7 +317,6 @@ class ProductListingSubscriber implements EventSubscriberInterface
         // each subProduct of mainProduct
         /** @var ProductProductEntity $pp */
         foreach ($result as $pp) {
-
             $subProductQuantityInCart = 0;
             if ($hasLineItems && $includeCart) {
                 $subProductQuantityInCart = $this->getSubProductQuantityInCart($pp, $mainProduct, $cart, $context);
@@ -227,8 +343,7 @@ class ProductListingSubscriber implements EventSubscriberInterface
         string $mainProduct,
         Cart $cart,
         SalesChannelContext $context
-    ): int
-    {
+    ): int {
         $subProductQuantityInCart = 0;
         //each masterProduct related to subProduct
         /** @var ProductProductEntity $relatedMainProduct */
@@ -236,70 +351,16 @@ class ProductListingSubscriber implements EventSubscriberInterface
             $relatedMainId = $relatedMainProduct->get('setProductId');
             $subProductQuantity = $relatedMainProduct->get('quantity');
             foreach ($this->cartReducer as $reducer) {
-                $subProductQuantityInCart += $reducer->reduce($cart, $relatedMainId, $mainProduct, $subProductQuantity,
-                    $context);
+                $subProductQuantityInCart += $reducer->reduce(
+                    $cart,
+                    $relatedMainId,
+                    $mainProduct,
+                    $subProductQuantity,
+                    $context
+                );
             }
         }
 
         return $subProductQuantityInCart;
-    }
-
-    /**
-     * @param ProductEntity $product
-     * @param int $accQuantity
-     */
-    private function setAvailability(ProductEntity $product, int $accQuantity): void
-    {
-        // set calculated purchase quantity gen min(uservalue)
-        $maxPurchase = $product->getMaxPurchase();
-        if ($product instanceof SalesChannelProductEntity) {
-            if ($maxPurchase !== null) {
-                $min = $maxPurchase < $accQuantity ? $maxPurchase : $accQuantity;
-                $product->setCalculatedMaxPurchase($min);
-            } else {
-                $product->setCalculatedMaxPurchase((int)$accQuantity);
-            }
-        }
-
-
-        $minPurchase = $product->getMinPurchase() !== null ? $product->getMinPurchase() : 1;
-
-        //set flags based on quantity
-        if ($accQuantity < $minPurchase) {
-            $product->setAvailable(false);
-            $product->setIsCloseout(true);
-        } else {
-            $product->setAvailable(true);
-            $product->setIsCloseout(false);
-        }
-    }
-
-    private function getAvailableStockWithSQL(string $productId, Context $context)
-    {
-
-        $sql = "select
-                	floor(min(stock)) as stock,
-                	floor(min(available_stock)) as available_stock
-                from (
-                	select
-                		(subProduct.stock / pp.quantity) as stock,
-                		(subProduct.available_stock / pp.quantity) as available_stock,
-                		pp.quantity
-                	from
-                		product as subProduct
-                		inner join ec_product_product as pp on subProduct.id = pp.product_id and subProduct.version_id = pp.product_version_id
-                	where
-                		pp.set_product_id = :productId and pp.product_version_id = :version) as calculated;";
-
-        try {
-            $result = $this->connection->fetchAssociative($sql, [
-                'productId' => Uuid::fromHexToBytes($productId),
-                'version' => Uuid::fromHexToBytes($context->getVersionId())
-            ]);
-        } catch (Exception $e) {
-            throw new ErrorException($e->getMessage());
-        }
-
-        return (int) $result['available_stock'];
     }
 }

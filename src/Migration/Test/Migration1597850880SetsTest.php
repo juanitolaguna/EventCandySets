@@ -11,7 +11,7 @@ class Migration1611740369ExampleDescriptionTest extends TestCase
 {
     use KernelTestBehaviour;
 
-    public function testNoChanges(): void
+    public function testSchemaDidNotChange(): void
     {
 
         /** @var Connection $conn */
@@ -25,7 +25,7 @@ class Migration1611740369ExampleDescriptionTest extends TestCase
         static::assertSame($expectedSchema, $actualSchema, 'Schema changed!. Run init again to have clean state');
     }
 
-    public function testNoTable(): void
+    public function testProductJoinTableCreated(): void
     {
         /** @var Connection $conn */
         $conn = $this->getContainer()->get(Connection::class);

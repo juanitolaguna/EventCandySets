@@ -10,6 +10,7 @@ use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
 use Shopware\Core\Checkout\Cart\CartDataCollectorInterface;
+use Shopware\Core\Checkout\Cart\CartPersisterInterface;
 use Shopware\Core\Checkout\Cart\CartProcessorInterface;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryInformation;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryTime;
@@ -71,28 +72,35 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
      */
     private $connection;
 
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
-
     private AbstractProductPriceCalculator $priceCalculator;
+
+    /**
+     * @var CartProductService
+     */
+    private $cartProductService;
+
+    /**
+     * @var CartPersisterInterface
+     */
+    private $cartPersister;
 
     public function __construct(
         ProductGatewayInterface $productGateway,
         QuantityPriceCalculator $calculator,
         ProductFeatureBuilder $featureBuilder,
         Connection $connection,
-        LoggerInterface $logger,
-        AbstractProductPriceCalculator $priceCalculator
+        AbstractProductPriceCalculator $priceCalculator,
+        CartProductService $cartProductService,
+        CartPersisterInterface $cartPersister
     )
     {
         $this->productGateway = $productGateway;
         $this->calculator = $calculator;
         $this->featureBuilder = $featureBuilder;
         $this->connection = $connection;
-        $this->logger = $logger;
         $this->priceCalculator = $priceCalculator;
+        $this->cartProductService = $cartProductService;
+        $this->cartPersister = $cartPersister;
     }
 
     public function collect(
@@ -102,6 +110,7 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
         CartBehavior $behavior
     ): void
     {
+        $this->cartPersister->save($original, $context);
         $lineItems = $original
             ->getLineItems()
             ->filterFlatByType(self::TYPE);
@@ -120,10 +129,12 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             }
         }
 
+        $this->cartProductService->removeCartProductsByToken($context->getToken());
         foreach ($lineItems as $lineItem) {
             // enrich all products in original cart
             $this->enrich($original, $lineItem, $data, $context, $behavior);
-            $this->addRelatedProductsToPayload($lineItem, $context);
+            $cartProducts = $this->addRelatedProductsToPayload($lineItem, $context);
+            $this->cartProductService->saveCartProducts($cartProducts);
         }
 
         $this->featureBuilder->prepare($lineItems, $data, $context);
@@ -134,8 +145,9 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
      * @param SalesChannelContext $context
      * @link EclmCartProcessor
      * #dup - @link CandyBagsCartProcessor
+     * @return CartProduct[]
      */
-    private function addRelatedProductsToPayload(LineItem $lineItem, SalesChannelContext $context)
+    private function addRelatedProductsToPayload(LineItem $lineItem, SalesChannelContext $context): array
     {
         /*
         * Base Query
@@ -147,12 +159,6 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
                     return;
                 }
         */
-        // ToDo: Insert Products Into CartProductTable
-        $accessorQuery = new RetryableQuery(
-            $this->connection,
-            $this->connection->prepare('UPDATE product SET cheapest_price_accessor = :accessor WHERE id = :id AND version_id = :version^')
-        );
-
 
 
         $sqlSetProducts = 'select
@@ -177,6 +183,9 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             ]
         );
 
+        /** @var CartProduct[] $cartProducts */
+        $cartProducts = [];
+
         $setProducts = [];
         $lineItemSubProducts = "";
 
@@ -192,11 +201,18 @@ class SetProductCartProcessor implements CartProcessorInterface, CartDataCollect
             // Sub Products line für fljnk
             $lineItemSubProducts .= "- {$row['product_number']} - {$row['name']} - {$row['quantity']}x \n";
 
+            $cartProducts[] = (new CartProduct())
+                ->setToken($context->getToken())
+                ->setLineItemId($lineItem->getId())
+                ->setProductId($lineItem->getReferencedId())
+                ->setSubProductId(Uuid::fromBytesToHex($row['product_id']))
+                ->setSubProductQuantity( $row['quantity'] * $lineItem->getQuantity())
+                ->setLineItemQuantity($lineItem->getQuantity());
         }
-
         $lineItem->setPayload([self::TYPE => $setProducts]);
         // format setProducts as a string‚
         $lineItem->setPayload(['line_item_sub_products' => $lineItemSubProducts]);
+        return $cartProducts;
     }
 
     /**

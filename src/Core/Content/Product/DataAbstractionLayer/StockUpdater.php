@@ -270,6 +270,7 @@ class StockUpdater implements EventSubscriberInterface
     private function updateStock(array $products, int $multiplier): void
     {
         $query = new RetryableQuery(
+            $this->connection,
             $this->connection->prepare('UPDATE product SET stock = stock + :quantity WHERE id = :id AND version_id = :version')
         );
 
@@ -280,6 +281,8 @@ class StockUpdater implements EventSubscriberInterface
                 'version' => Uuid::fromHexToBytes(Defaults::LIVE_VERSION),
             ]);
         }
+
+
     }
 
 
