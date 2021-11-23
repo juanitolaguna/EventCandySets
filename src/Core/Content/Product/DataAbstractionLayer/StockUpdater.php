@@ -29,7 +29,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class StockUpdater implements EventSubscriberInterface
 {
 
-
     /**
      * @var Connection
      */

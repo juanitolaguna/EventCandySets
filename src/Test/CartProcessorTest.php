@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Test;
 
+use EventCandy\Sets\Test\Utils\ToDoTestBehaviour;
 use Monolog\Test\TestCase;
 use Shopware\Core\Framework\Test\TestCaseBase\AdminFunctionalTestBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\SalesChannelApiTestBehaviour;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EventCandy\Sets\Test;
+namespace EventCandy\Sets\Test\Utils;
 
 trait ToDoTestBehaviour {
     /**
