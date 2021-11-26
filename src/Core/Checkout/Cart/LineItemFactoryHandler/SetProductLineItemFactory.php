@@ -54,6 +54,7 @@ class SetProductLineItemFactory implements LineItemFactoryInterface
         }
 
         if (isset($data['quantity'])) {
+            $lineItem->markModified();
             $lineItem->setQuantity((int) $data['quantity']);
         }
 

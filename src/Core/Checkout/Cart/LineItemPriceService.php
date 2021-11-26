@@ -34,11 +34,12 @@ class LineItemPriceService
         LineItem $lineItem,
         CartDataCollection $data,
         SalesChannelContext $context,
-        string $taxId = null
+        string $taxId = null,
+        float $additionalPrice = 0.0
     ): QuantityPriceDefinition {
-        $taxId = $taxId ?? $this->getProductWithHighestTaxRate($lineItem, $data)->getTaxId();
+        $taxId = $taxId ?? $this->getProductWithHighestTaxRate($lineItem, $data)->getProduct()->getTaxId();
         $taxRules = $context->buildTaxRules($taxId);
-        $currencyPrice = $this->getProductCurrencyPrice($lineItem, $data, $context);
+        $currencyPrice = $this->getProductCurrencyPrice($lineItem, $data, $context) + $additionalPrice;
 
         return new QuantityPriceDefinition(
             $currencyPrice,
@@ -52,14 +53,14 @@ class LineItemPriceService
         /** @var DynamicProductEntity[] $dynamicProducts */
         $products = $this->dynamicProductService->getFromCartDataByLineItemId($lineItem->getId(), $data);
 
-        /** @var ProductEntity $productWithHighestTax */
+        /** @var DynamicProductEntity $productWithHighestTax */
         $productWithHighestTax = array_reduce(
             $products,
             function (DynamicProductEntity $p1, DynamicProductEntity $p2) {
-                $p1 = $p1->getProduct();
-                $p2 = $p2->getProduct();
-                $taxRate1 = $p1->getTax()->getTaxRate();
-                $taxRate2 = $p2->getTax()->getTaxRate();
+                $product1 = $p1->getProduct();
+                $product2 = $p2->getProduct();
+                $taxRate1 = $product1->getTax()->getTaxRate();
+                $taxRate2 = $product2->getTax()->getTaxRate();
                 return $taxRate1 > $taxRate2 ? $p1 : $p2;
             },
             $products[0]

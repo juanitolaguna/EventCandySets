@@ -16,6 +16,7 @@ use Shopware\Core\Checkout\Cart\CartDataCollectorInterface;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryInformation;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryTime;
+use Shopware\Core\Checkout\Cart\Exception\CartTokenNotFoundException;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Checkout\Cart\LineItem\QuantityInformation;
@@ -89,28 +90,30 @@ class SetProductCartCollector implements CartDataCollectorInterface
         SalesChannelContext $context,
         CartBehavior $behavior
     ): void {
-        $lineItemsBefore = $original
-            ->getLineItems()
-            ->filterFlatByType(self::TYPE);
 
-        $lineItems = $this->getNotCompleted($data, $lineItemsBefore, $original->isModified());
-
-        if (count($lineItems) === 0) {
+        $lineItemsChanged = $this->getNotCompleted($data, $original->getLineItems()->getElements(), $original->isModified());
+        if (count($lineItemsChanged) === 0) {
             return;
         }
+        Utils::log('collectSets');
 
+        $lineItems = $original->getLineItems()->filterFlatByType(self::TYPE);
+        $this->createCartIfNotExists($context, $original);
 
-        $this->dynamicProductService->removeDynamicProductsByToken($context->getToken());
-        $this->cartProductService->removeCartProductsByToken($context->getToken());
+//        // better remove by LineItemId
+//        $this->dynamicProductService->removeDynamicProductsByToken($context->getToken());
+//        $this->cartProductService->removeCartProductsByToken($context->getToken());
 
-        $this->cartPersister->save($original, $context);
+        foreach ($lineItems as $lineItem) {
+            $this->dynamicProductService->removeDynamicProductsByLineItemId($lineItem->getId(), $context->getToken());
+            $this->cartProductService->removeCartProductsByLineItem($lineItem->getId(), $context->getToken());
+        }
+        $data->clear();
 
-        $dynamicProducts = $this->dynamicProductService
-            ->createDynamicProductCollection($lineItems, $context->getToken());
+        $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $context->getToken());
         $dynamicProductIds = $this->dynamicProductService->getDynamicProductIdsFromCollection($dynamicProducts);
         $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
 
-        // ToDO: optimization first time - stock calculation
         $dynamicProductCollection = $this->dynamicProductGateway->get($dynamicProductIds, $context, false);
         $this->dynamicProductService->addDynamicProductsToCartDataByLineItemId($dynamicProductCollection, $data);
 
@@ -127,7 +130,6 @@ class SetProductCartCollector implements CartDataCollectorInterface
         $dynamicProductCollection = $this->dynamicProductGateway->get($dynamicProductIds, $context);
         $this->dynamicProductService->addDynamicProductsToCartDataByLineItemId($dynamicProductCollection, $data);
 
-        $cartProducts = [];
         foreach ($lineItems as $lineItem) {
             $this->enrichLineItem($lineItem, $data, $context);
 
@@ -232,7 +234,6 @@ class SetProductCartCollector implements CartDataCollectorInterface
 
             // check if some data is missing (label, price, cover)
             if (!$this->isComplete($lineItem)) {
-                Utils::log('not complete');
                 $newLineItems[] = $lineItem;
                 continue;
             }
@@ -253,6 +254,19 @@ class SetProductCartCollector implements CartDataCollectorInterface
             && $lineItem->getLabel() !== null
             && $lineItem->getDeliveryInformation() !== null
             && $lineItem->getQuantityInformation() !== null;
+    }
+
+    /**
+     * @param SalesChannelContext $context
+     * @param Cart $original
+     */
+    private function createCartIfNotExists(SalesChannelContext $context, Cart $original): void
+    {
+        try {
+            $this->cartPersister->load($context->getToken(), $context);
+        } catch (CartTokenNotFoundException $exception) {
+            $this->cartPersister->save($original, $context);
+        }
     }
 
 }

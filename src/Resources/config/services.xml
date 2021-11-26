@@ -92,6 +92,19 @@
             <tag name="shopware.cart.collector" priority="5500"/>
         </service>
 
+        <service id="EventCandy\Sets\Core\Checkout\Cart\CollectorOptimizer">
+            <argument type="service" id="EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\CartPersister"/>
+            <argument type="service" id="EventCandy\Sets\Core\Checkout\Cart\CartProduct\CartProductService"/>
+            <argument type="tagged" tag="ec.sets.cart-optimizer"/>
+            <tag name="shopware.cart.collector" priority="100000"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Checkout\Cart\CollectorOptimizer\SetProductCollectorOptimizer">
+            <argument type="service" id="EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService"/>
+            <tag name="ec.sets.cart-optimizer"/>
+        </service>
+
         <service id="EventCandy\Sets\Core\Checkout\Cart\SetProductCartProcessor">
             <argument type="service" id="Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator"/>
             <tag name="shopware.cart.processor" priority="5500"/>

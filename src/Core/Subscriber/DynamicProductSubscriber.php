@@ -161,13 +161,13 @@ class DynamicProductSubscriber implements EventSubscriberInterface
                 		cp.token,
                 		cp.line_item_id,
                 		cp.sub_product_id AS subProduct,
-                		cp.sub_product_quantity as quantity,
+                		sum(cp.sub_product_quantity) as quantity,
                 		0 as quantityPP
                 	FROM
                 		ec_cart_product cp
                 	WHERE
                 		cp.token collate utf8mb4_unicode_ci = :token
-                		AND cp.unique_id != :uniqueId) AS subProducts
+                		AND cp.unique_id != :uniqueId group by sub_product_id) AS subProducts
                 	INNER JOIN product AS p ON subProduct = p.id
                 GROUP BY subProduct) as subproductsGrouped;";
         return $sql;

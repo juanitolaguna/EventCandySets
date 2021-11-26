@@ -148,45 +148,37 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
      */
     private function sqlWithCart()
     {
-        $sql = "SELECT
-                	floor(min(calculatedStock)) AS stock,
-                	floor(min(calculatedAvailableStock)) AS available_stock
-                	FROM
-                (SELECT
-                	token,
-                	subProducts.subProduct,
-                	sum(subProducts.quantity) as quantity,
-                	sum(subProducts.quantityPP) as quantityProProduct,
-                	p.stock,
-                	p.available_stock,
-                	((p.stock / subProducts.quantityPP) - sum(subProducts.quantity)) as calculatedStock,
-                	((p.available_stock / subProducts.quantityPP) - sum(subProducts.quantity)) as calculatedAvailableStock
-                FROM (
-                	SELECT
-                		'---' as token,
-                		'+++' as line_item_id,
-                		pp.product_id AS subProduct,
-                		0 as quantity,
-                		pp.quantity as quantityPP
-                	FROM
-                		product AS p
-                		INNER JOIN ec_product_product AS pp ON p.id = pp.product_id
-                	WHERE
-                		pp.set_product_id = :mainProductId
-                	UNION
-                	SELECT
-                		cp.token,
-                		cp.line_item_id,
-                		cp.sub_product_id AS subProduct,
-                		cp.sub_product_quantity as quantity,
-                		0 as quantityPP
-                	FROM
-                		ec_cart_product cp
-                	WHERE
-                		cp.token collate utf8mb4_unicode_ci = :token
-                		AND cp.product_id != :uniqueId) AS subProducts
-                	INNER JOIN product AS p ON subProduct = p.id
-                GROUP BY subProduct) as subproductsGrouped;";
+        $sql = "SELECT floor(min(calculatedStock)) AS stock,
+                       floor(min(calculatedAvailableStock)) AS available_stock
+                FROM
+                  (SELECT token,
+                          subProducts.subProduct,
+                          sum(subProducts.quantity) AS quantity,
+                          sum(subProducts.quantityPP) AS quantityProProduct,
+                          p.stock,
+                          p.available_stock,
+                          ((p.stock / subProducts.quantityPP) - sum(subProducts.quantity)) AS calculatedStock,
+                          ((p.available_stock / subProducts.quantityPP) - sum(subProducts.quantity)) AS calculatedAvailableStock
+                   FROM
+                     (SELECT '---' AS token,
+                             '+++' AS line_item_id,
+                             pp.product_id AS subProduct,
+                             0 AS quantity,
+                             pp.quantity AS quantityPP
+                      FROM product AS p
+                      INNER JOIN ec_product_product AS pp ON p.id = pp.product_id
+                      WHERE pp.set_product_id = :mainProductId
+                      UNION SELECT cp.token,
+                                   cp.line_item_id,
+                                   cp.sub_product_id AS subProduct,
+                                   sum(cp.sub_product_quantity) AS quantity,
+                                   0 AS quantityPP
+                      FROM ec_cart_product cp
+                      WHERE cp.token COLLATE utf8mb4_unicode_ci = :token
+                      and cp.line_item_id != :uniqueId
+                      GROUP BY sub_product_id) AS subProducts
+                   INNER JOIN product AS p ON subProduct = p.id
+                   GROUP BY subProduct) AS subproductsGrouped;";
         return $sql;
     }
 

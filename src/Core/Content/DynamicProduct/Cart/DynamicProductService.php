@@ -8,7 +8,6 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
-use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
@@ -67,7 +66,7 @@ class DynamicProductService
 
     /**
      * @param DynamicProduct[] $dynamicProducts
-     * @throws Exception
+     * @throws \Doctrine\DBAL\Driver\Exception
      */
     public function saveDynamicProductsToDb(array $dynamicProducts)
     {
@@ -79,6 +78,7 @@ class DynamicProductService
             )
         );
 
+
         foreach ($dynamicProducts as $product) {
             $query->execute([
                 'id' => Uuid::fromHexToBytes($product->getId()),
@@ -89,6 +89,7 @@ class DynamicProductService
         }
     }
 
+
     /**
      * @param string $token
      * @throws Exception
@@ -98,6 +99,29 @@ class DynamicProductService
         $this->connection->executeStatement("DELETE FROM ec_dynamic_product WHERE token = :token", [
             'token' => $token
         ]);
+    }
+
+    public function preparedlineItemsInCart(array $lineItemIds, string $token)
+    {
+        $sql = "SELECT
+                	count(*) AS total
+                FROM (
+                	SELECT
+                		line_item_id
+                	FROM
+                		ec_dynamic_product
+                	WHERE
+                		line_item_id in (:ids)
+                		AND token = :token
+                	GROUP BY
+                		line_item_id) group1;";
+
+        $result = $this->connection->fetchAssociative(
+            $sql,
+            ['ids' => $lineItemIds, 'token' => $token],
+            ['ids' => Connection::PARAM_STR_ARRAY]
+        );
+       return (int) $result['total'];
     }
 
     /**
@@ -113,6 +137,19 @@ class DynamicProductService
         $this->connection->executeStatement("DELETE FROM ec_dynamic_product WHERE id not in (:ids)",
             ['ids' => $dynamicProductIds],
             ['ids' => Connection::PARAM_STR_ARRAY]
+        );
+    }
+
+    /**
+     * @param string $lineItemId
+     * @param string $token
+     * @throws Exception
+     */
+    public function removeDynamicProductsByLineItemId(string $lineItemId, string $token): void
+    {
+        $this->connection->executeStatement(
+            "DELETE FROM ec_dynamic_product WHERE ec_dynamic_product.line_item_id = :id AND token = :token",
+            ['id' => $lineItemId, 'token' => $token],
         );
     }
 

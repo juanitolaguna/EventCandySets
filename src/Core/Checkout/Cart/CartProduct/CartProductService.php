@@ -47,6 +47,7 @@ class CartProductService
      */
     public function saveCartProducts(array $cartProducts)
     {
+
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(
@@ -83,13 +84,14 @@ class CartProductService
 
     /**
      * @param string $lineItemId
+     * @param string $token
      * @throws Exception
      */
-    public function removeCartProductsByLineItem(string $lineItemId)
+    public function removeCartProductsByLineItem(string $lineItemId, string $token)
     {
         $this->connection->executeStatement(
-            "delete from ec_cart_product where line_item_id = :line_item_id;",
-            ['line_item_id' => Uuid::fromHexToBytes($lineItemId)]
+            "delete from ec_cart_product where line_item_id = :line_item_id and token = :token;",
+            ['line_item_id' => Uuid::fromHexToBytes($lineItemId), 'token' => $token]
         );
     }
 
@@ -119,12 +121,9 @@ class CartProductService
                 continue;
             }
             $payload = $data->get($key);
-            $cartProducts = array_merge(
-                $cartProducts,
-                $this->createCartProductsFromPayload($lineItem, $product, $payload, $cartProducts)
-            );
-        }
 
+            $cartProducts = array_merge($cartProducts, $this->createCartProductsFromPayload($lineItem, $product, $payload));
+        }
         return $cartProducts;
     }
 
@@ -138,9 +137,9 @@ class CartProductService
     private function createCartProductsFromPayload(
         LineItem $lineItem,
         DynamicProductEntity $dynamicProductEntity,
-        array $payload,
-        array $cartProducts
+        array $payload
     ): array {
+        $cartProducts = [];
         foreach ($payload as $row) {
             $subProductId = Uuid::fromBytesToHex($row['product_id']);
 

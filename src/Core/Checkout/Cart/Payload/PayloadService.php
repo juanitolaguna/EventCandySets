@@ -10,6 +10,7 @@ use EventCandy\Sets\Core\Checkout\Cart\Exception\PayloadMissingInCartDataExcepti
 use EventCandy\Sets\Core\Checkout\Cart\Exception\ProductsMissingInPayloadObjectException;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -43,7 +44,7 @@ class PayloadService
     }
 
     /**
-     * Fetches the required data to build the subproducts payload.
+     * Fetches the required data to build the subproducts payload and saves it to the CartDataCollection.
      * For Performance gain same method is used to fetch data to build the CartProduct collection.
      * Hence 'subproducts' are needed for 2 Different DataStructures but are fetched only once from Db.
      * @throws Exception
