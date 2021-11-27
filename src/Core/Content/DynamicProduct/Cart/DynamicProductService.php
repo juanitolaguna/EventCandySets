@@ -213,7 +213,7 @@ class DynamicProductService
      * @param CartDataCollection $data
      * @return DynamicProductEntity[]
      */
-    public function getFromCartDataByLineItemId(string $lineItemId, CartDataCollection $data): array
+    public function getFromCartDataByLineItemId(string $lineItemId, CartDataCollection $data): ?array
     {
         $key = self::DYNAMIC_PRODUCT_LINE_ITEM_ID . $lineItemId;
         return $data->get($key);
