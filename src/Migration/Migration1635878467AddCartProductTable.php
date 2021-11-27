@@ -16,20 +16,21 @@ class Migration1635878467AddCartProductTable extends MigrationStep
     public function update(Connection $connection): void
     {
         $connection->executeStatement(
-            'CREATE TABLE IF NOT EXISTS `ec_cart_product` (
-            `id` BINARY(16) NOT NULL,
-            `unique_id` BINARY(16) NOT NULL,
-            `token` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-            `line_item_id` BINARY(16) NOT NULL,
-            `product_id` BINARY(16) NOT NULL,
-            `sub_product_id` BINARY(16) NOT NULL,
-            `sub_product_quantity` INTEGER NOT NULL,
-            `line_item_quantity` INTEGER NOT NULL,
-            `created_at` DATETIME(3) NOT NULL,
-            `updated_at` DATETIME(3) NULL,
-            PRIMARY KEY (`id`),
-            CONSTRAINT `fk.ec_cart_product.token` FOREIGN KEY (`token`) REFERENCES `cart` (`token`) ON DELETE CASCADE ON UPDATE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;'
+                'CREATE TABLE IF NOT EXISTS `ec_cart_product` (
+                `id` BINARY(16) NOT NULL,
+                `unique_id` BINARY(16) NOT NULL,
+                `token` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+                `line_item_id` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+                `product_id` BINARY(16) NOT NULL,
+                `sub_product_id` BINARY(16) NOT NULL,
+                `sub_product_quantity` INTEGER NOT NULL,
+                `line_item_quantity` INTEGER NOT NULL,
+                `line_item_type` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+                `created_at` DATETIME(3) NOT NULL,
+                `updated_at` DATETIME(3) NULL,
+                PRIMARY KEY (`id`),
+                CONSTRAINT `fk.ec_cart_product.token` FOREIGN KEY (`token`) REFERENCES `cart` (`token`) ON DELETE CASCADE ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;'
         );
     }
 

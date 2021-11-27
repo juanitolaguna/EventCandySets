@@ -21,6 +21,7 @@ class Migration1637051141DynamicProduct extends MigrationStep
             `token` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
             `line_item_id` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
             `product_id` BINARY(16) NOT NULL,
+            `is_new` TINYINT(1) NULL DEFAULT \'0\',
             `created_at` DATETIME(3) NOT NULL,
             `updated_at` DATETIME(3) NULL,
             PRIMARY KEY (`id`),

@@ -54,6 +54,19 @@
             <tag name="kernel.event_subscriber"/>
         </service>
 
+        <service id="EventCandy\Sets\Core\Subscriber\LineItemAddToCartSubscriber">
+            <argument type="service" id="EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService"/>
+            <argument type="service" id="Shopware\Core\Checkout\Cart\CartPersister"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="EventCandy\Sets\Core\Subscriber\SetProductAddedSubscriber">
+            <argument type="service" id="product.repository"/>
+            <argument type="service" id="event_dispatcher"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+
         <service id="EventCandy\Sets\Core\Checkout\Cart\SubProductCartReducer">
             <tag name="ec.sets.cart_reducer"/>
         </service>

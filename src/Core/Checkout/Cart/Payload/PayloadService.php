@@ -227,4 +227,19 @@ class PayloadService
         }
         return $productsAssociative;
     }
+
+    public function removePayloadDataByLineItemId(CartDataCollection $data, string $lineItemId)
+    {
+        /** @var DynamicProductEntity[] $dynamicProducts */
+        $dynamicProducts = $this->dynamicProductService
+            ->getFromCartDataByLineItemId($lineItemId, $data);
+
+        foreach ($dynamicProducts as $dynamicProduct) {
+            $key = self::getPayloadKey($dynamicProduct->getId());
+            if ($data->has($key)) {
+                $data->remove($key);
+            }
+        }
+
+    }
 }

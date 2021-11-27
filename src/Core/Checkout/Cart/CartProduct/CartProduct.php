@@ -46,6 +46,11 @@ class CartProduct extends Struct {
     protected $lineItemQuantity;
 
     /**
+     * @var string
+     */
+    protected $lineItemType;
+
+    /**
      * @param string $uniqueId
      * @param string $token
      * @param string $lineItemId
@@ -53,6 +58,7 @@ class CartProduct extends Struct {
      * @param string $subProductId
      * @param int $subProductQuantity
      * @param int $lineItemQuantity
+     * @param string $lineItemType
      */
     public function __construct(
         string $uniqueId,
@@ -61,7 +67,8 @@ class CartProduct extends Struct {
         string $productId,
         string $subProductId,
         int $subProductQuantity,
-        int $lineItemQuantity
+        int $lineItemQuantity,
+        string $lineItemType
     ) {
         $this->uniqueId = $uniqueId;
         $this->token = $token;
@@ -70,6 +77,7 @@ class CartProduct extends Struct {
         $this->subProductId = $subProductId;
         $this->subProductQuantity = $subProductQuantity;
         $this->lineItemQuantity = $lineItemQuantity;
+        $this->lineItemType = $lineItemType;
     }
 
     /**
@@ -126,5 +134,13 @@ class CartProduct extends Struct {
     public function getLineItemQuantity(): int
     {
         return $this->lineItemQuantity;
+    }
+
+    /**
+     * @return string
+     */
+    public function getLineItemType(): string
+    {
+        return $this->lineItemType;
     }
 }

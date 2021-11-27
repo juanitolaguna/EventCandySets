@@ -51,8 +51,8 @@ class CartProductService
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(
-                'INSERT INTO ec_cart_product (id, unique_id, token, line_item_id, product_id, sub_product_id, sub_product_quantity, line_item_quantity)
-            values (:id, :unique_id, :token, :line_item_id, :product_id, :sub_product_id, :sub_product_quantity, :line_item_quantity);'
+                'INSERT INTO ec_cart_product (id, unique_id, token, line_item_id, product_id, sub_product_id, sub_product_quantity, line_item_quantity, line_item_type)
+            values (:id, :unique_id, :token, :line_item_id, :product_id, :sub_product_id, :sub_product_quantity, :line_item_quantity, :line_item_type);'
             )
         );
 
@@ -61,13 +61,26 @@ class CartProductService
                 'id' => Uuid::randomBytes(),
                 'unique_id' => Uuid::fromHexToBytes($cartProduct->getUniqueId()),
                 'token' => $cartProduct->getToken(),
-                'line_item_id' => Uuid::fromHexToBytes($cartProduct->getLineItemId()),
+                'line_item_id' => $cartProduct->getLineItemId(),
                 'product_id' => Uuid::fromHexToBytes($cartProduct->getProductId()),
                 'sub_product_id' => Uuid::fromHexToBytes($cartProduct->getSubProductId()),
                 'sub_product_quantity' => $cartProduct->getSubProductQuantity(),
-                'line_item_quantity' => $cartProduct->getLineItemQuantity()
+                'line_item_quantity' => $cartProduct->getLineItemQuantity(),
+                'line_item_type' => $cartProduct->getLineItemType()
             ]);
         }
+    }
+
+    /**
+     * @param string $token
+     * @throws Exception
+     */
+    public function removeCartProductsByTokenAndType(string $token, string $type)
+    {
+        $this->connection->executeStatement(
+            "delete from ec_cart_product where `token` = :token and line_item_type = :type;",
+            ['token' => $token, 'type' => $type]
+        );
     }
 
     /**
@@ -79,6 +92,20 @@ class CartProductService
         $this->connection->executeStatement(
             "delete from ec_cart_product where `token` = :token;",
             ['token' => $token]
+        );
+    }
+
+    /**
+     * @param array $lineItemIds
+     * @param string $token
+     * @throws Exception
+     */
+    public function removeCartProductsByLineItemIds(array $lineItemIds, string $token)
+    {
+        $this->connection->executeStatement(
+            "delete from ec_cart_product where line_item_id in (:ids) and token = :token;",
+            ['ids' => $lineItemIds, 'token' => $token],
+            ['ids' => Connection::PARAM_STR_ARRAY]
         );
     }
 
@@ -104,7 +131,8 @@ class CartProductService
      */
     public function buildCartProductsFromPayload(
         LineItem $lineItem,
-        CartDataCollection $data
+        CartDataCollection $data,
+        string $type
     ): array {
         /** @var DynamicProductEntity[] $product */
         $products = $this->dynamicProductService->getFromCartDataByLineItemId($lineItem->getId(), $data);
@@ -122,7 +150,7 @@ class CartProductService
             }
             $payload = $data->get($key);
 
-            $cartProducts = array_merge($cartProducts, $this->createCartProductsFromPayload($lineItem, $product, $payload));
+            $cartProducts = array_merge($cartProducts, $this->createCartProductsFromPayload($lineItem, $product, $payload, $type));
         }
         return $cartProducts;
     }
@@ -137,7 +165,8 @@ class CartProductService
     private function createCartProductsFromPayload(
         LineItem $lineItem,
         DynamicProductEntity $dynamicProductEntity,
-        array $payload
+        array $payload,
+        string $type
     ): array {
         $cartProducts = [];
         foreach ($payload as $row) {
@@ -150,7 +179,8 @@ class CartProductService
                 $dynamicProductEntity->getProductId(),
                 $subProductId,
                 (int)$row['quantity'] * $lineItem->getQuantity(),
-                $lineItem->getQuantity()
+                $lineItem->getQuantity(),
+                $type
             );
         }
         return $cartProducts;
@@ -170,6 +200,18 @@ class CartProductService
             ['ids' => $dynamicProductIds],
             ['ids' => Connection::PARAM_STR_ARRAY]
         );
+    }
+
+    /**
+     * @param string $token
+     * @return array
+     * @throws Exception
+     */
+    public function getCartProductsByToken(string $token): array {
+        $sql = "SELECT * FROM ec_cart_product WHERE token = :token";
+        return $this->connection->fetchAllAssociative($sql, ['token' => $token]);
+
+
     }
 
 

@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
@@ -68,13 +69,13 @@ class DynamicProductService
      * @param DynamicProduct[] $dynamicProducts
      * @throws \Doctrine\DBAL\Driver\Exception
      */
-    public function saveDynamicProductsToDb(array $dynamicProducts)
+    public function saveDynamicProductsToDb(array $dynamicProducts, $isNew = false)
     {
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(
-                'INSERT INTO ec_dynamic_product (id, token, product_id, line_item_id) 
-                    values (:id, :token, :product_id, :line_item_id);'
+                'INSERT INTO ec_dynamic_product (id, token, product_id, line_item_id, is_new) 
+                    values (:id, :token, :product_id, :line_item_id, :is_new);'
             )
         );
 
@@ -84,7 +85,8 @@ class DynamicProductService
                 'id' => Uuid::fromHexToBytes($product->getId()),
                 'token' => $product->getToken(),
                 'product_id' => Uuid::fromHexToBytes($product->getProductId()),
-                'line_item_id' => $product->getLineItemId()
+                'line_item_id' => $product->getLineItemId(),
+                'is_new' => $isNew
             ]);
         }
     }
@@ -94,11 +96,39 @@ class DynamicProductService
      * @param string $token
      * @throws Exception
      */
-    public function removeDynamicProductsByToken(string $token): void
+    public function removeDynamicProductsByToken(string $token, bool $excludeNew = false): void
     {
-        $this->connection->executeStatement("DELETE FROM ec_dynamic_product WHERE token = :token", [
+        if ($excludeNew) {
+            $sql = "DELETE FROM ec_dynamic_product WHERE token = :token and is_new != 1";
+        } else {
+            $sql = "DELETE FROM ec_dynamic_product WHERE token = :token";
+        }
+
+        $this->connection->executeStatement($sql, [
             'token' => $token
         ]);
+    }
+
+    public function resetNewFlag(string $token):void {
+        $sql = "UPDATE ec_dynamic_product SET is_new = 0 WHERE token = :token";
+
+        $this->connection->executeStatement($sql, [
+            'token' => $token
+        ]);
+    }
+
+    /**
+     * @param array $lineItemIds
+     * @param string $token
+     * @throws Exception
+     */
+    public function removeDynamicProductsByLineItemIds(array $lineItemIds, string $token): void
+    {
+        $this->connection->executeStatement(
+            "DELETE FROM ec_dynamic_product WHERE line_item_id IN (:ids) and token = :token;",
+            ['ids' => $lineItemIds, 'token' => $token],
+            ['ids' => Connection::PARAM_STR_ARRAY]
+        );
     }
 
     public function preparedlineItemsInCart(array $lineItemIds, string $token)
@@ -121,7 +151,7 @@ class DynamicProductService
             ['ids' => $lineItemIds, 'token' => $token],
             ['ids' => Connection::PARAM_STR_ARRAY]
         );
-       return (int) $result['total'];
+        return (int)$result['total'];
     }
 
     /**

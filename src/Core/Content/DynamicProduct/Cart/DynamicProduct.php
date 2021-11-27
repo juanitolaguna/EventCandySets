@@ -25,17 +25,23 @@ class DynamicProduct {
     protected $lineItemId;
 
     /**
+     * @var bool|null
+     */
+    protected $isNew;
+
+    /**
      * @param string $id
      * @param string $token
      * @param string $productId
      * @param string $lineItemId
      */
-    public function __construct(string $id, string $token, string $productId, string $lineItemId)
+    public function __construct(string $id, string $token, string $productId, string $lineItemId, bool $isNew = false)
     {
         $this->id = $id;
         $this->token = $token;
         $this->productId = $productId;
         $this->lineItemId = $lineItemId;
+        $this->isNew = $isNew;
     }
 
     /**
@@ -68,6 +74,14 @@ class DynamicProduct {
     public function getLineItemId(): string
     {
         return $this->lineItemId;
+    }
+
+    /**
+     * @return bool|null
+     */
+    public function getIsNew(): ?bool
+    {
+        return $this->isNew;
     }
 
 }

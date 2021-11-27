@@ -6,6 +6,7 @@ namespace EventCandy\Sets\Core\Content\DynamicProduct;
 
 use Shopware\Core\Content\Product\ProductDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
+use Shopware\Core\Framework\DataAbstractionLayer\Field\BoolField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\FkField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\ApiAware;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\PrimaryKey;
@@ -57,6 +58,7 @@ class DynamicProductDefinition extends EntityDefinition
                 'product_id',
                 ProductDefinition::class
             ))->addFlags(new ApiAware()),
+            (new BoolField('is_new', 'isNew'))->addFlags(new ApiAware())
         ]);
     }
 

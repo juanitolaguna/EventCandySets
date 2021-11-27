@@ -32,6 +32,11 @@ class DynamicProductEntity extends Entity
     protected $lineItemId;
 
     /**
+     * @var bool|null
+     */
+    protected $isNew;
+
+    /**
      * @return string
      */
     public function getToken(): string
@@ -93,6 +98,22 @@ class DynamicProductEntity extends Entity
     public function setLineItemId(string $lineItemId): void
     {
         $this->lineItemId = $lineItemId;
+    }
+
+    /**
+     * @return bool|null
+     */
+    public function getIsNew(): ?bool
+    {
+        return $this->isNew;
+    }
+
+    /**
+     * @param bool|null $isNew
+     */
+    public function setIsNew(?bool $isNew): void
+    {
+        $this->isNew = $isNew;
     }
 
 }

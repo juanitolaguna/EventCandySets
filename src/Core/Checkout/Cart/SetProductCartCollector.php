@@ -93,18 +93,19 @@ class SetProductCartCollector implements CartDataCollectorInterface
 
         $lineItemsChanged = $this->getNotCompleted($data, $original->getLineItems()->getElements(), $original->isModified());
         if (count($lineItemsChanged) === 0) {
-            //return;
+            return;
         }
 
-        Utils::log('collectSets');
+        //Utils::log('collectSets');
 
         $lineItems = $original->getLineItems()->filterFlatByType(self::TYPE);
         $this->createCartIfNotExists($context, $original);
 
         foreach ($lineItems as $lineItem) {
             $this->dynamicProductService->removeDynamicProductsByLineItemId($lineItem->getId(), $context->getToken());
-            $this->cartProductService->removeCartProductsByLineItem($lineItem->getId(), $context->getToken());
+            //$this->cartProductService->removeCartProductsByLineItem($lineItem->getId(), $context->getToken());
         }
+        $this->cartProductService->removeCartProductsByTokenAndType($context->getToken(), self::TYPE);
         $data->clear();
 
         $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $context->getToken());
@@ -117,7 +118,7 @@ class SetProductCartCollector implements CartDataCollectorInterface
         /** @var LineItem $lineItem */
         foreach ($lineItems as $lineItem) {
             $this->payloadService->loadPayloadDataForLineItem($lineItem, $data, $context);
-            $cartProducts = $this->cartProductService->buildCartProductsFromPayload($lineItem, $data);
+            $cartProducts = $this->cartProductService->buildCartProductsFromPayload($lineItem, $data, self::TYPE);
             $this->cartProductService->saveCartProducts($cartProducts);
             $this->dynamicProductService->removeDynamicProductsFromCartDataByLineItemId($lineItem->getId(), $data);
         }
@@ -212,7 +213,7 @@ class SetProductCartCollector implements CartDataCollectorInterface
         $newLineItems = [];
 
         $areModified = array_filter($lineItems, function (LineItem $lineItem) {
-            return $lineItem->isModified();
+            //return $lineItem->isModified();
         });
 
         // If one Item is modified recalculate all.
