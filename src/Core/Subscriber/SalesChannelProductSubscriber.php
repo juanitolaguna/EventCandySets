@@ -7,8 +7,12 @@ namespace EventCandy\Sets\Core\Subscriber;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use ErrorException;
+use EventCandy\Sets\Core\Event\BoolStruct;
+use EventCandy\Sets\Core\Event\ProductLoadedEvent;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
 use Shopware\Core\Checkout\Cart\Exception\CartTokenNotFoundException;
+use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\Entity\SalesChannelEntityLoadedEvent;
@@ -17,6 +21,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class SalesChannelProductSubscriber implements EventSubscriberInterface
 {
+
+    public const SKIP_UNIQUE_ID = 'skip-unique-id';
 
     /**
      * @var Connection
@@ -42,45 +48,73 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents()
     {
         return [
-            'sales_channel.product.loaded' => 'salesChannelProductLoaded'
+            'sales_channel.product.loaded' => 'salesChannelProductLoaded',
+            ProductLoadedEvent::class => 'productLoaded'
         ];
     }
 
+    public function productLoaded(ProductLoadedEvent $event)
+    {
+        $context = $event->getContext();
+        $products = $event->getEntities();
+        $this->recalculateStock($context, $products->getElements());
+    }
+
+    /**
+     * @param SalesChannelEntityLoadedEvent $event
+     * @throws ErrorException
+     */
     public function salesChannelProductLoaded(SalesChannelEntityLoadedEvent $event)
     {
         $context = $event->getSalesChannelContext();
+        $products = $event->getEntities();
+        $this->recalculateStock($context, $products);
+    }
+
+    /**
+     * @param SalesChannelContext $context
+     * @param array $products
+     * @throws ErrorException
+     */
+    private function recalculateStock(SalesChannelContext $context, array $products): void
+    {
         if ($this->cartHasLineItems($context)) {
-            $this->calculateStockWithCart($event);
+            $this->calculateStockWithCart($products, $context);
         } else {
-            $this->calculateStockWithoutCart($event);
+            $this->calculateStockWithoutCart($products, $context);
         }
     }
 
-    private function calculateStockWithCart(SalesChannelEntityLoadedEvent $event): void
+    /**
+     * @param array $products
+     * @param SalesChannelContext $context
+     * @throws ErrorException
+     */
+    private function calculateStockWithCart(array $products, SalesChannelContext $context): void
     {
-        /** @var SalesChannelProductEntity $salesChannelProduct */
-        foreach ($event->getEntities() as $salesChannelProduct) {
-            if (!$this->isSetProduct($salesChannelProduct)) {
+        /** @var ProductEntity $salesChannelProduct */
+        foreach ($products as $product) {
+            if (!$this->isSetProduct($product)) {
                 continue;
             }
-            $stock = $this->getStockWithCart($event, $salesChannelProduct);
-            $salesChannelProduct->setAvailableStock((int)$stock['available_stock']);
-            $salesChannelProduct->setStock((int)$stock['stock']);
-            DynamicProductSubscriber::setAvailability($salesChannelProduct, (int)$stock['available_stock']);
+            $stock = $this->getStockWithCart($context, $product);
+            $product->setAvailableStock((int)$stock['available_stock']);
+            $product->setStock((int)$stock['stock']);
+            DynamicProductSubscriber::setAvailability($product, (int)$stock['available_stock']);
         }
     }
 
-    private function calculateStockWithoutCart(SalesChannelEntityLoadedEvent $event): void
+    private function calculateStockWithoutCart(array $products, SalesChannelContext $context): void
     {
-        /** @var SalesChannelProductEntity $salesChannelProduct */
-        foreach ($event->getEntities() as $salesChannelProduct) {
-            if (!$this->isSetProduct($salesChannelProduct)) {
+        /** @var ProductEntity $product */
+        foreach ($products as $product) {
+            if (!$this->isSetProduct($product)) {
                 continue;
             }
-            $stock = $this->getStockWithoutCart($event, $salesChannelProduct);
-            $salesChannelProduct->setAvailableStock((int)$stock['available_stock']);
-            $salesChannelProduct->setStock((int)$stock['stock']);
-            DynamicProductSubscriber::setAvailability($salesChannelProduct, (int)$stock['available_stock']);
+            $stock = $this->getStockWithoutCart($context, $product);
+            $product->setAvailableStock((int)$stock['available_stock']);
+            $product->setStock((int)$stock['stock']);
+            DynamicProductSubscriber::setAvailability($product, (int)$stock['available_stock']);
         }
     }
 
@@ -90,14 +124,18 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
      * @return array
      * @throws ErrorException
      */
-    private function getStockWithCart(SalesChannelEntityLoadedEvent $event, SalesChannelProductEntity $product): array
+    private function getStockWithCart(SalesChannelContext $context, ProductEntity $product): array
     {
         $sql = $this->sqlWithCart();
+
+        /** @var BoolStruct $uniqueId */
+        $skipUniqueId = $product->getExtension(self::SKIP_UNIQUE_ID) ?? new BoolStruct(false);
+
         try {
             $result = $this->connection->fetchAssociative($sql, [
-                'token' => $event->getSalesChannelContext()->getToken(),
+                'token' => $context->getToken(),
                 'mainProductId' => Uuid::fromHexToBytes($product->getId()),
-                'uniqueId' => Uuid::fromHexToBytes($product->getId())
+                'uniqueId' => $skipUniqueId->getValue() ? Uuid::randomBytes() : Uuid::fromHexToBytes($product->getId())
             ]);
         } catch (Exception $e) {
             throw new ErrorException($e->getMessage());
@@ -106,14 +144,14 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
     }
 
     private function getStockWithoutCart(
-        SalesChannelEntityLoadedEvent $event,
-        SalesChannelProductEntity $salesChannelProduct
+        SalesChannelContext $context,
+        ProductEntity $salesChannelProduct
     ) {
         $sql = $this->sqlWithoutCart();
         try {
             $result = $this->connection->fetchAssociative($sql, [
                 'productId' => Uuid::fromHexToBytes($salesChannelProduct->getId()),
-                'version' => Uuid::fromHexToBytes($event->getSalesChannelContext()->getVersionId())
+                'version' => Uuid::fromHexToBytes($context->getVersionId())
             ]);
         } catch (Exception $e) {
             throw new ErrorException($e->getMessage());
@@ -122,7 +160,7 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
     }
 
 
-    private function isSetProduct(SalesChannelProductEntity $productEntity): bool
+    private function isSetProduct(ProductEntity $productEntity): bool
     {
         return array_key_exists('ec_is_set', $productEntity->getCustomFields())
             && $productEntity->getCustomFields()['ec_is_set'];
@@ -201,6 +239,8 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
                 		AND pp.product_version_id = :version) AS calculated;";
         return $sql;
     }
+
+
 
 
 }

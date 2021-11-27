@@ -93,16 +93,13 @@ class SetProductCartCollector implements CartDataCollectorInterface
 
         $lineItemsChanged = $this->getNotCompleted($data, $original->getLineItems()->getElements(), $original->isModified());
         if (count($lineItemsChanged) === 0) {
-            return;
+            //return;
         }
+
         Utils::log('collectSets');
 
         $lineItems = $original->getLineItems()->filterFlatByType(self::TYPE);
         $this->createCartIfNotExists($context, $original);
-
-//        // better remove by LineItemId
-//        $this->dynamicProductService->removeDynamicProductsByToken($context->getToken());
-//        $this->cartProductService->removeCartProductsByToken($context->getToken());
 
         foreach ($lineItems as $lineItem) {
             $this->dynamicProductService->removeDynamicProductsByLineItemId($lineItem->getId(), $context->getToken());
