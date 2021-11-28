@@ -142,8 +142,8 @@ class DynamicProductSubscriber implements EventSubscriberInterface
                 	sum(subProducts.quantityPP) as quantityProProduct,
                 	p.stock,
                 	p.available_stock,
-                	((p.stock / subProducts.quantityPP) - sum(subProducts.quantity)) as calculatedStock,
-                	((p.available_stock / subProducts.quantityPP) - sum(subProducts.quantity)) as calculatedAvailableStock
+                	(p.stock - sum(subProducts.quantity)) / sum(subProducts.quantityPP) AS calculatedStock,
+                    (p.available_stock - sum(subProducts.quantity)) / sum(subProducts.quantityPP) AS calculatedAvailableStock
                 FROM (
                 	SELECT
                 		'---' as token,

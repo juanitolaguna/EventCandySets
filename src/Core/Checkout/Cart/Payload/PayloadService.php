@@ -85,7 +85,7 @@ class PayloadService
                     'languageId' => Uuid::fromHexToBytes($context->getContext()->getLanguageId())
                 ]
             );
-            $data->set($key, $result);
+                $data->set($key, $result);
         }
     }
 

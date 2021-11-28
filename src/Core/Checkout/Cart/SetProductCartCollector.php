@@ -160,6 +160,7 @@ class SetProductCartCollector implements CartDataCollectorInterface
         if ($product->getDeliveryTime() !== null) {
             $deliveryTime = DeliveryTime::createFromEntity($product->getDeliveryTime());
         }
+        //Utils::log(print_r($product->getAvailableStock(), true));
 
         $lineItem->setDeliveryInformation(
             new DeliveryInformation(

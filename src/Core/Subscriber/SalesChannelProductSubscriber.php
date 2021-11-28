@@ -98,6 +98,7 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
                 continue;
             }
             $stock = $this->getStockWithCart($context, $product);
+            Utils::log(print_r($stock, true));
             $product->setAvailableStock((int)$stock['available_stock']);
             $product->setStock((int)$stock['stock']);
             DynamicProductSubscriber::setAvailability($product, (int)$stock['available_stock']);
@@ -195,8 +196,8 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
                           sum(subProducts.quantityPP) AS quantityProProduct,
                           p.stock,
                           p.available_stock,
-                          ((p.stock / subProducts.quantityPP) - sum(subProducts.quantity)) AS calculatedStock,
-                          ((p.available_stock / subProducts.quantityPP) - sum(subProducts.quantity)) AS calculatedAvailableStock
+                          (p.stock - sum(subProducts.quantity)) / sum(subProducts.quantityPP) AS calculatedStock,
+                          (p.available_stock - sum(subProducts.quantity)) / sum(subProducts.quantityPP) AS calculatedAvailableStock
                    FROM
                      (SELECT '---' AS token,
                              '+++' AS line_item_id,
