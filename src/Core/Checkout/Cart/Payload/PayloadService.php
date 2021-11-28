@@ -54,22 +54,23 @@ class PayloadService
         CartDataCollection $data,
         SalesChannelContext $context
     ): void {
-        $sqlSetProducts = "SELECT
-            	dp.id AS dynamicProductId,
-            	pp.product_id,
-            	pp.quantity,
-            	pt.name,
-            	p.product_number,
-            	IFNULL(p.weight, 0.0) AS weight
-            FROM
-            	ec_dynamic_product AS dp
-            	LEFT JOIN ec_product_product pp ON dp.product_id = pp.set_product_id
-            	LEFT JOIN product_translation pt ON pp.product_id = pt.product_id
-            	LEFT JOIN product p ON pp.product_id = p.id
-            	LEFT JOIN product_translation mainProductTranslation ON pp.set_product_id = mainProductTranslation.product_id
-            WHERE
-            	dp.id = :dynamicProductId
-            	AND pt.language_id = :languageId";
+        $sqlSetProducts = "
+                SELECT
+                	dp.id AS dynamicProductId,
+                	IFNULL(pp.product_id, mainProduct.id) as product_id,
+                	IFNULL(pp.quantity, 1) as quantity, 
+                	IFNULL(pt.name, mainProductTranslation.name) as name,
+                	IFNULL(p.product_number, mainProduct.product_number) as product_number,
+                	IFNULL(p.weight, IFNULL(mainProduct.weight, 0.0)) AS weight
+                FROM
+                	ec_dynamic_product AS dp
+                	LEFT JOIN ec_product_product pp ON dp.product_id = pp.set_product_id
+                	LEFT JOIN product_translation pt ON pp.product_id = pt.product_id
+                	LEFT JOIN product p ON pp.product_id = p.id
+                	LEFT JOIN product_translation mainProductTranslation ON :mainProductId = mainProductTranslation.product_id
+                	LEFT JOIN product mainProduct ON :mainProductId = mainProduct.id
+                WHERE
+                	dp.id = :dynamicProductId AND mainProductTranslation.language_id = :languageId;";
 
 
         /** @var DynamicProductEntity[] $dynamicProducts */
@@ -82,10 +83,14 @@ class PayloadService
                 $sqlSetProducts,
                 [
                     'dynamicProductId' => Uuid::fromHexToBytes($dynamicProduct->getId()),
-                    'languageId' => Uuid::fromHexToBytes($context->getContext()->getLanguageId())
+                    'languageId' => Uuid::fromHexToBytes($context->getContext()->getLanguageId()),
+                    'mainProductId' => Uuid::fromHexToBytes($dynamicProduct->getProductId())
                 ]
             );
-                $data->set($key, $result);
+
+
+            Utils::log(print_r($result, true));
+            $data->set($key, $result);
         }
     }
 
@@ -97,7 +102,7 @@ class PayloadService
      */
     public function buildPayloadObject(LineItem $lineItem, CartDataCollection $data): PayloadLineItem
     {
-        /** @var DynamicProductEntity $product */
+        /** @var DynamicProductEntity[] $products */
         $products = $this->dynamicProductService->getFromCartDataByLineItemId($lineItem->getId(), $data);
 
         $label = $lineItem->getLabel() ?? '';
