@@ -86,7 +86,7 @@ class DynamicProductService
                 'token' => $product->getToken(),
                 'product_id' => Uuid::fromHexToBytes($product->getProductId()),
                 'line_item_id' => $product->getLineItemId(),
-                'is_new' => $isNew
+                'is_new' => $isNew ? 1 : 0
             ]);
         }
     }
