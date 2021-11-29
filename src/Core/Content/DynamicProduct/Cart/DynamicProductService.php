@@ -11,6 +11,7 @@ use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
 use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Uuid\Uuid;
 
@@ -74,8 +75,8 @@ class DynamicProductService
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(
-                'INSERT INTO ec_dynamic_product (id, token, product_id, line_item_id, is_new) 
-                    values (:id, :token, :product_id, :line_item_id, :is_new);'
+                'INSERT INTO ec_dynamic_product (id, token, product_id, line_item_id, is_new, created_at) 
+                    values (:id, :token, :product_id, :line_item_id, :is_new, :created_at);'
             )
         );
 
@@ -86,7 +87,8 @@ class DynamicProductService
                 'token' => $product->getToken(),
                 'product_id' => Uuid::fromHexToBytes($product->getProductId()),
                 'line_item_id' => $product->getLineItemId(),
-                'is_new' => $isNew ? 1 : 0
+                'is_new' => $isNew ? 1 : 0,
+                'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)
             ]);
         }
     }

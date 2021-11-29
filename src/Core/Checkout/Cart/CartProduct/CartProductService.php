@@ -13,6 +13,7 @@ use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
 use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -51,8 +52,8 @@ class CartProductService
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(
-                'INSERT INTO ec_cart_product (id, unique_id, token, line_item_id, product_id, sub_product_id, sub_product_quantity, line_item_quantity, line_item_type)
-            values (:id, :unique_id, :token, :line_item_id, :product_id, :sub_product_id, :sub_product_quantity, :line_item_quantity, :line_item_type);'
+                'INSERT INTO ec_cart_product (id, unique_id, token, line_item_id, product_id, sub_product_id, sub_product_quantity, line_item_quantity, line_item_type, created_at)
+            values (:id, :unique_id, :token, :line_item_id, :product_id, :sub_product_id, :sub_product_quantity, :line_item_quantity, :line_item_type, :created_at);'
             )
         );
 
@@ -66,7 +67,8 @@ class CartProductService
                 'sub_product_id' => Uuid::fromHexToBytes($cartProduct->getSubProductId()),
                 'sub_product_quantity' => $cartProduct->getSubProductQuantity(),
                 'line_item_quantity' => $cartProduct->getLineItemQuantity(),
-                'line_item_type' => $cartProduct->getLineItemType()
+                'line_item_type' => $cartProduct->getLineItemType(),
+                'created_at' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT)
             ]);
         }
     }
