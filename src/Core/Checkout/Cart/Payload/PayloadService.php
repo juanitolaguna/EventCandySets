@@ -132,7 +132,6 @@ class PayloadService
             $payloadLineItem->addProduct($payloadLineItemProduct);
         }
 
-        Utils::log(print_r($payloadLineItem, true));
         return $payloadLineItem;
     }
 
@@ -144,13 +143,7 @@ class PayloadService
     public function makePayloadDataAssociative(PayloadLineItem $payloadLineItem, string $payloadKey): array
     {
         $this->validatePayloadObject($payloadLineItem);
-
-        Utils::log(print_r('payloadLinteItem', true));
-        Utils::log(print_r($payloadLineItem, true));
         $products = $this->makePayloadDataAssociativeIterate($payloadLineItem->getProducts());
-
-        Utils::log(print_r('products', true));
-        Utils::log(print_r($products, true));
 
         return [
             $payloadKey => [

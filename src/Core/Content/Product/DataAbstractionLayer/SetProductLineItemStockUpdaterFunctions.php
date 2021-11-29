@@ -32,9 +32,6 @@ class SetProductLineItemStockUpdaterFunctions implements LineItemStockUpdaterFun
         $products = $lineItem->getPayload()[$this->getLineItemType()];
         $payload = [];
 
-        Utils::log(print_r('payload enter', true));
-        Utils::log(print_r($products, true));
-
         foreach ($products['products'] as $product) {
             $payload[] = [
                 'id' => $newParent = Uuid::randomHex(),
@@ -61,7 +58,6 @@ class SetProductLineItemStockUpdaterFunctions implements LineItemStockUpdaterFun
             $children = null;
         }
 
-        Utils::log(print_r($payload, true));
         return $payload;
     }
 

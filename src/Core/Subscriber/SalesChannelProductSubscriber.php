@@ -98,7 +98,6 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
                 continue;
             }
             $stock = $this->getStockWithCart($context, $product);
-            Utils::log(print_r($stock, true));
             $product->setAvailableStock((int)$stock['available_stock']);
             $product->setStock((int)$stock['stock']);
             DynamicProductSubscriber::setAvailability($product, (int)$stock['available_stock']);
