@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EventCandy\Sets\Core\Content\Product\DataAbstractionLayer;
 
 use EventCandy\Sets\Core\Checkout\Cart\SetProductCartCollector;
+use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\Event\CheckoutOrderPlacedEvent;
 use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemEntity;
 use Shopware\Core\Checkout\Order\OrderEntity;
@@ -17,42 +18,51 @@ class SetProductLineItemStockUpdaterFunctions implements LineItemStockUpdaterFun
         return SetProductCartCollector::TYPE;
     }
 
-
+    /**
+     * Right now 2 Levels of iteration supported
+     * ToDo: recursive for mor flexibility
+     * @param OrderLineItemEntity $lineItem
+     * @param CheckoutOrderPlacedEvent $event
+     * @return array
+     */
     public function createOrderLineItemProducts(OrderLineItemEntity $lineItem, CheckoutOrderPlacedEvent $event): array
     {
         /** @var OrderEntity $order */
         $order = $event->getOrder();
         $products = $lineItem->getPayload()[$this->getLineItemType()];
-        return $this->createOrderLineItemsRecursive($products['products'], $lineItem, $order);
+        $payload = [];
 
-    }
+        Utils::log(print_r('payload enter', true));
+        Utils::log(print_r($products, true));
 
-    private function createOrderLineItemsRecursive(
-        array $products,
-        OrderLineItemEntity $lineItem,
-        OrderEntity $order,
-        string $parentId = null
-    ): array {
-        $orderLineItem = [];
-        foreach ($products as $product) {
-            $orderLineItem[] = [
+        foreach ($products['products'] as $product) {
+            $payload[] = [
                 'id' => $newParent = Uuid::randomHex(),
-                'parentId' => $parentId,
+                'parentId' => null,
                 'productId' => $product['product_id'],
                 'orderId' => $order->getId(),
                 'orderLineItemId' => $lineItem->getId(),
-                'quantity' => $product['quantity'] * $lineItem->getQuantity()
+                'quantity' => $parentQuantity = $product['quantity']
             ];
 
-            if (is_array($product['products']) && count($product['products']) > 0) {@
-                $orderLineItem = array_merge(
-                    $orderLineItem,
-                    $this->createOrderLineItemsRecursive($product['products'], $lineItem, $order, $newParent ?? null)
-                );
+            $children = $product['products'];
+            if (is_array($children) && count($children) > 0) {
+                foreach ($children as $child) {
+                    $payload[] = [
+                        'id' => Uuid::randomHex(),
+                        'parentId' => $newParent,
+                        'productId' => $child['product_id'],
+                        'orderId' => $order->getId(),
+                        'orderLineItemId' => $lineItem->getId(),
+                        'quantity' => $child['quantity'] * $parentQuantity
+                    ];
+                }
             }
+            $children = null;
         }
-        return $orderLineItem;
-    }
 
+        Utils::log(print_r($payload, true));
+        return $payload;
+    }
 
 }

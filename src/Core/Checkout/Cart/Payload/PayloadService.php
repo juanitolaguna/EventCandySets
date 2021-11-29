@@ -87,9 +87,6 @@ class PayloadService
                     'mainProductId' => Uuid::fromHexToBytes($dynamicProduct->getProductId())
                 ]
             );
-
-
-            Utils::log(print_r($result, true));
             $data->set($key, $result);
         }
     }
@@ -121,7 +118,8 @@ class PayloadService
 
             $product = $dynamicProduct->getProduct();
 
-            $payloadProducts = $this->getSubProductsFromPayload($payload);
+            $payloadProducts = $this->getSubProductsFromPayload($payload, $dynamicProduct);
+            //Utils::log(print_r($payloadProducts, true));
 
             $payloadLineItemProduct = new PayloadLineItemProduct(
                 $product->getProductNumber(),
@@ -134,6 +132,7 @@ class PayloadService
             $payloadLineItem->addProduct($payloadLineItemProduct);
         }
 
+        Utils::log(print_r($payloadLineItem, true));
         return $payloadLineItem;
     }
 
@@ -145,7 +144,13 @@ class PayloadService
     public function makePayloadDataAssociative(PayloadLineItem $payloadLineItem, string $payloadKey): array
     {
         $this->validatePayloadObject($payloadLineItem);
-        $products = $this->makePayloadDataAssociativeRecursive($payloadLineItem->getProducts());
+
+        Utils::log(print_r('payloadLinteItem', true));
+        Utils::log(print_r($payloadLineItem, true));
+        $products = $this->makePayloadDataAssociativeIterate($payloadLineItem->getProducts());
+
+        Utils::log(print_r('products', true));
+        Utils::log(print_r($products, true));
 
         return [
             $payloadKey => [
@@ -190,12 +195,20 @@ class PayloadService
      * @param array $payload
      * @return PayloadLineItemProduct[]
      */
-    private function getSubProductsFromPayload(array $payload): array
+    private function getSubProductsFromPayload(array $payload, DynamicProductEntity $dynamicProductEntity): array
     {
         /** @var PayloadLineItemProduct[] $payloadLineItemProducts */
         $payloadLineItemProducts = [];
         foreach ($payload as $row) {
             $productId = Uuid::fromBytesToHex($row['product_id']);
+
+            /** This case occurs only with normal products because of
+             * IFNULL(pp.product_id, mainProduct.id) as product_id,
+             * @link PayloadService::loadPayloadDataForLineItem()
+             */
+            if ($productId === $dynamicProductEntity->getProductId()) {
+                continue;
+            }
             $payloadProduct = new PayloadLineItemProduct(
                 $row['product_number'],
                 $productId,
@@ -204,6 +217,7 @@ class PayloadService
                 (int) $row['quantity'],
                 []
             );
+            //Utils::log(print_r($payloadProduct, true));
             $payloadLineItemProducts[] = $payloadProduct;
         }
         return $payloadLineItemProducts;
@@ -213,14 +227,26 @@ class PayloadService
      * @param PayloadLineItemProduct $products
      * @return array
      */
-    private function makePayloadDataAssociativeRecursive(array $products): array
+    private function makePayloadDataAssociativeIterate(array $products): array
     {
         $productsAssociative = [];
         /** @var PayloadLineItemProduct $product */
         foreach ($products as $product) {
             if (count($product->getProducts()) > 0) {
-                $children = $this->makePayloadDataAssociativeRecursive($product->getProducts());
+                /** @var PayloadLineItemProduct $child */
+
+                foreach ($product->getProducts() as $child) {
+                    $children[] = [
+                        'product_id' => $child->getProductId(),
+                        'product_number' => $child->getProductNumber(),
+                        'product_name' => $child->getName(),
+                        'quantity' => $child->getQuantity(),
+                        'weight' => $child->getWeight(),
+                        'products' => ''
+                    ];
+                }
             }
+
             $productsAssociative[] = [
                 'product_id' => $product->getProductId(),
                 'product_number' => $product->getProductNumber(),
@@ -229,6 +255,8 @@ class PayloadService
                 'weight' => $product->getWeight(),
                 'products' => $children ?? ''
             ];
+
+            $children = null;
         }
         return $productsAssociative;
     }
