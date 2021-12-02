@@ -91,11 +91,11 @@ class PayloadLineItemProduct
      */
     public function getWeight(): float
     {
-        if (!$this->products) {
+        if (!is_null($this->products)) {
             return $this->weight;
         }
-
         $weight = 0;
+
         /** @var self $product */
         foreach ($this->products as $product) {
             $weight += $product->getWeight() * $product->getQuantity() * $this->getQuantity();
