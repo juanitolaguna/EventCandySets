@@ -98,7 +98,7 @@ class PayloadLineItemProduct
         $weight = 0;
         /** @var self $product */
         foreach ($this->products as $product) {
-            $weight += $product->getWeight();
+            $weight += $product->getWeight() * $product->getQuantity() * $this->getQuantity();
         }
         return $weight;
     }
