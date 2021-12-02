@@ -33,7 +33,7 @@ class PayloadLineItemProduct
     /**
      * @var PayloadLineItemProduct[]|null
      */
-    protected $products;
+    protected $products = [];
 
 
     /**

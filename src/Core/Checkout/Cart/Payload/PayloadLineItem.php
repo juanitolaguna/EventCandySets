@@ -46,6 +46,7 @@ class PayloadLineItem
         foreach ($this->products as $product) {
             $weight += $product->getWeight();
         }
+
         return $weight;
     }
 
