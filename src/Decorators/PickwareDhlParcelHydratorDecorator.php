@@ -29,7 +29,7 @@ use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Pricing\Price;
-use Shopware\Core\Framework\DataAbstractionLayer\Pricing\Pr@iceCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
 
 /**
  * Class PickwareDhlParcelHydratorDecorator
