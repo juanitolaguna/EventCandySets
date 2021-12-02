@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Checkout\Cart\Payload;
 
+use EventCandy\Sets\Utils;
+
 class PayloadLineItem
 {
     /**
@@ -37,12 +39,12 @@ class PayloadLineItem
     public function getTotalWeight(): float
     {
         $weight = 0.0;
-        if (is_null($this->products)) {
+        if (count($this->products) === 0) {
             return $weight;
         }
 
         foreach ($this->products as $product) {
-            $weight += $product->getWeight() * $this->getQuantity();
+            $weight += $product->getWeight();
         }
         return $weight;
     }
