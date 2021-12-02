@@ -37,12 +37,12 @@ class PayloadLineItem
     public function getTotalWeight(): float
     {
         $weight = 0.0;
-        if (!$this->products) {
+        if (is_null($this->products)) {
             return $weight;
         }
 
         foreach ($this->products as $product) {
-            $weight += $product->getWeight();
+            $weight += $product->getWeight() * $this->getQuantity();
         }
         return $weight;
     }
