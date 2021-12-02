@@ -10,4 +10,4 @@ ssh $USER@$REMOTE 'sudo -u www-data '$BINPATH'/bin/console plugin:update '$PLUGI
 ssh $USER@$REMOTE 'sudo -u www-data '$BINPATH'/bin/console cache:clear'
 
 # execute with www-data as user
-ssh $USER@$REMOTE  'sudo -u www-data '$BINPATH'/bin/console theme:compile'
+#ssh $USER@$REMOTE  'sudo -u www-data '$BINPATH'/bin/console theme:compile'

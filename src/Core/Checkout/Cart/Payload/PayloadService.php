@@ -61,7 +61,7 @@ class PayloadService
                 	IFNULL(pp.quantity, 1) as quantity, 
                 	IFNULL(pt.name, mainProductTranslation.name) as name,
                 	IFNULL(p.product_number, mainProduct.product_number) as product_number,
-                	IFNULL(p.weight, IFNULL(mainProduct.weight, 0.0)) AS weight
+                	IFNULL(p.weight, IF(pp.product_id IS NULL, IFNULL(mainProduct.weight, 0.0), 0.0)) AS weight
                 FROM
                 	ec_dynamic_product AS dp
                 	LEFT JOIN ec_product_product pp ON dp.product_id = pp.set_product_id
@@ -144,7 +144,6 @@ class PayloadService
     {
         $this->validatePayloadObject($payloadLineItem);
         $products = $this->makePayloadDataAssociativeIterate($payloadLineItem->getProducts());
-
         return [
             $payloadKey => [
                 'products' => $products,
@@ -206,8 +205,8 @@ class PayloadService
                 $row['product_number'],
                 $productId,
                 $row['name'],
-                (float) $row['weight'],
-                (int) $row['quantity'],
+                (float)$row['weight'],
+                (int)$row['quantity'],
                 []
             );
             //Utils::log(print_r($payloadProduct, true));
@@ -266,6 +265,5 @@ class PayloadService
                 $data->remove($key);
             }
         }
-
     }
 }
