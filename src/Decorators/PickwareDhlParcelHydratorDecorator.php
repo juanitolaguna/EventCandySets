@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace EventCandy\Sets\Decorators;
 
@@ -21,12 +23,13 @@ use Pickware\UnitsOfMeasurement\PhysicalQuantity\Weight;
 use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
 use Shopware\Core\Checkout\Document\DocumentEntity as ShopwareDocumentEntity;
 use Shopware\Core\Checkout\Document\DocumentGenerator\InvoiceGenerator;
+use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemEntity;
 use Shopware\Core\Checkout\Order\OrderDefinition;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Pricing\Price;
-use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
+use Shopware\Core\Framework\DataAbstractionLayer\Pricing\Pr@iceCollection;
 
 /**
  * Class PickwareDhlParcelHydratorDecorator
@@ -73,8 +76,7 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
         EntityManager $entityManager,
         ContextFactory $contextFactory,
         iterable $stockUpdaterFunctionsSupplier
-    )
-    {
+    ) {
         parent::__construct($entityManager, $contextFactory);
         $this->parcelHydrator = $parcelHydrator;
         $this->entityManager = $entityManager;
@@ -127,9 +129,11 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
             foreach ($orderLineItem->get('lineItemProducts') as $lineItemProduct) {
                 /** @var ProductCollection $mainProducts */
                 $mainProducts = $lineItemProduct->getProduct()->get('masterProducts');
+                //skip sub products
                 if ($mainProducts->count() > 0) {
                     continue;
                 }
+
                 $parcelItem = new ParcelItem($lineItemProduct->getQuantity());
                 $parcel->addItem($parcelItem);
 
@@ -143,19 +147,31 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
 
                 $product = $lineItemProduct->getProduct();
                 if (!$product) {
-                    throw new ErrorException('Something is wrong - no product linked in the orderlineItemProduct table');
+                    throw new ErrorException(
+                        'Something is wrong - no product linked in the orderlineItemProduct table'
+                    );
                 }
 
                 $productName = $product->getName() ?: $product->getTranslation('name');
                 $parcelItem->setName($productName);
 
-                $parcelItem->setUnitWeight($product->getWeight() ? new Weight($product->getWeight(), 'kg') : null);
+
+                $calculatedWeight = $this->calculateWeigthFromSubProducts($orderLineItem, $lineItemProduct);
+                if ($calculatedWeight > 0.0) {
+                    $parcelItem->setUnitWeight(new Weight($calculatedWeight, 'kg'));
+                } else {
+                    $parcelItem->setUnitWeight($product->getWeight() ? new Weight($product->getWeight(), 'kg') : null);
+                }
+
+
                 if ($product->getWidth() !== null && $product->getHeight() !== null && $product->getLength() !== null) {
-                    $parcelItem->setUnitDimensions(new BoxDimensions(
-                        new Length($product->getWidth(), 'mm'),
-                        new Length($product->getHeight(), 'mm'),
-                        new Length($product->getLength(), 'mm')
-                    ));
+                    $parcelItem->setUnitDimensions(
+                        new BoxDimensions(
+                            new Length($product->getWidth(), 'mm'),
+                            new Length($product->getHeight(), 'mm'),
+                            new Length($product->getLength(), 'mm')
+                        )
+                    );
                 }
 
                 $description = $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_DESCRIPTION] ?? '';
@@ -171,10 +187,7 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
                 $itemCustomsInformation->setCountryIsoOfOrigin(
                     $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_COUNTRY_OF_ORIGIN] ?? null
                 );
-
-
             }
-
         }
         return $this->mergeParcelItemsWithInner($parcel, $orderId, $context);
     }
@@ -220,6 +233,27 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
         return $parcel;
     }
 
+    /**
+     * @param OrderLineItemEntity $orderLineItem
+     * @param OrderLineItemProductEntity $lineItemProduct
+     * @return float
+     */
+    private function calculateWeigthFromSubProducts(
+        OrderLineItemEntity $orderLineItem,
+        OrderLineItemProductEntity $lineItemProduct
+    ): float {
+        $calculatedWeight = 0.0;
+        /** @var OrderLineItemProductEntity $lineItemSubProduct */
+        foreach ($orderLineItem->get('lineItemProducts') as $lineItemSubProduct) {
+            $currentParentId = $lineItemSubProduct->getParentId();
+            if (!$currentParentId == $lineItemProduct->getId() || $lineItemSubProduct->getParentId() === null) {
+                continue;
+            }
+            $calculatedWeight += $lineItemSubProduct->getProduct()->getWeight() * $lineItemSubProduct->getQuantity();
+        }
+
+        return $calculatedWeight;
+    }
 
 
 }
