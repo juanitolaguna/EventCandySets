@@ -108,7 +108,7 @@ class SetProductCartCollector implements CartDataCollectorInterface
         $this->cartProductService->removeCartProductsByTokenAndType($context->getToken(), self::TYPE);
         $data->clear();
 
-        $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $context->getToken());
+        $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $original->getToken());
         $dynamicProductIds = $this->dynamicProductService->getDynamicProductIdsFromCollection($dynamicProducts);
         $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
 
