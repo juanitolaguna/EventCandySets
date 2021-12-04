@@ -148,6 +148,14 @@ class CollectorOptimizer implements CartDataCollectorInterface
 
     private function cartOrLineItemsChanged(CartDataCollection $data, array $lineItems, bool $cartModified): bool
     {
+        $includesCreditLineItem = array_filter($lineItems, function (LineItem $lineItem) {
+            return $lineItem->getType() === LineItem::CREDIT_LINE_ITEM_TYPE;
+        });
+
+        if($includesCreditLineItem) {
+            return false;
+        }
+
         $areModified = array_filter($lineItems, function (LineItem $lineItem) {
             return $lineItem->isModified();
         });

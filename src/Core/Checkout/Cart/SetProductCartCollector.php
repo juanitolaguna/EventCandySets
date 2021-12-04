@@ -211,6 +211,14 @@ class SetProductCartCollector implements CartDataCollectorInterface
 
     private function getNotCompleted(CartDataCollection $data, array $lineItems, bool $cartModified): array
     {
+        $includesCreditLineItem = array_filter($lineItems, function (LineItem $lineItem) {
+            return $lineItem->getType() === LineItem::CREDIT_LINE_ITEM_TYPE;
+        });
+
+        if($includesCreditLineItem) {
+            return [];
+        }
+
         $newLineItems = [];
 
         $areModified = array_filter($lineItems, function (LineItem $lineItem) {
