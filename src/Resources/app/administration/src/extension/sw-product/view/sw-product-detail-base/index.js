@@ -47,6 +47,11 @@ Component.override('sw-product-detail-base', {
                     property: 'product.availableStock',
                     label: 'Available Stock',
                     sortable: false
+                },
+                {
+                    property: 'product.stock',
+                    label: 'Stock',
+                    sortable: false
                 }
             ];
         },
