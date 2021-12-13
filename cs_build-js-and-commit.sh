@@ -13,7 +13,7 @@ docker cp shopware:/var/www/html/custom/plugins/$pluginName/src/Resources/public
 ./src/Resources/public
 
 
-
+./cs
 #commit build with new timestamp
 timestamp=$(date +%m-%d-%Y-%s)
 git add .
