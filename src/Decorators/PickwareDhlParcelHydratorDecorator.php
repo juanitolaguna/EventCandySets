@@ -8,6 +8,7 @@ namespace EventCandy\Sets\Decorators;
 use ErrorException;
 use EventCandy\Sets\Core\Content\OrderLineItemProduct\OrderLineItemProductEntity;
 use EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\LineItemStockUpdaterFunctionsInterface;
+use EventCandy\Sets\Utils;
 use Pickware\DalBundle\ContextFactory;
 use Pickware\DalBundle\EntityManager;
 use Pickware\MoneyBundle\Currency;
@@ -125,69 +126,44 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
                 continue;
             }
 
-            /** @var OrderLineItemProductEntity $lineItemProduct */
-            foreach ($orderLineItem->get('lineItemProducts') as $lineItemProduct) {
-                /** @var ProductCollection $mainProducts */
-                $mainProducts = $lineItemProduct->getProduct()->get('masterProducts');
-                //skip sub products
-                if ($mainProducts->count() > 0) {
-                    continue;
-                }
 
-                $parcelItem = new ParcelItem($lineItemProduct->getQuantity());
-                $parcel->addItem($parcelItem);
+            $parcelItem = new ParcelItem($orderLineItem->getQuantity());
 
-                $itemCustomsInformation = new ParcelItemCustomsInformation($parcelItem);
-                $itemCustomsInformation->setCustomsValue(
-                    new MoneyValue(
-                        $this->getPriceValue($lineItemProduct->getProduct()->getPrice(), $context),
-                        new Currency($currencyCode)
-                    )
-                );
+            $parcel->addItem($parcelItem);
 
-                $product = $lineItemProduct->getProduct();
-                if (!$product) {
-                    throw new ErrorException(
-                        'Something is wrong - no product linked in the orderlineItemProduct table'
-                    );
-                }
+            $itemCustomsInformation = new ParcelItemCustomsInformation($parcelItem);
+            $itemCustomsInformation->setCustomsValue(
+                new MoneyValue(
+                    $orderLineItem->getUnitPrice(),
+                    new Currency($currencyCode)
+                )
+            );
 
-                $productName = $product->getName() ?: $product->getTranslation('name');
-                $parcelItem->setName($productName);
+            $parcelItem->setName($orderLineItem->getLabel());
 
+            $type = $orderLineItem->getType();
+            $calculatedWeight = $orderLineItem->getPayload()[$type];
 
-                $calculatedWeight = $this->calculateWeigthFromSubProducts($orderLineItem, $lineItemProduct);
-                if ($calculatedWeight > 0.0) {
-                    $parcelItem->setUnitWeight(new Weight($calculatedWeight, 'kg'));
-                } else {
-                    $parcelItem->setUnitWeight($product->getWeight() ? new Weight($product->getWeight(), 'kg') : null);
-                }
-
-
-                if ($product->getWidth() !== null && $product->getHeight() !== null && $product->getLength() !== null) {
-                    $parcelItem->setUnitDimensions(
-                        new BoxDimensions(
-                            new Length($product->getWidth(), 'mm'),
-                            new Length($product->getHeight(), 'mm'),
-                            new Length($product->getLength(), 'mm')
-                        )
-                    );
-                }
-
-                $description = $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_DESCRIPTION] ?? '';
-                if (!$description) {
-                    // If no explicit description for this product was provided, use the product name as fallback
-                    $description = $productName;
-                }
-
-                $itemCustomsInformation->setDescription($description);
-                $itemCustomsInformation->setTariffNumber(
-                    $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_TARIFF_NUMBER] ?? null
-                );
-                $itemCustomsInformation->setCountryIsoOfOrigin(
-                    $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_COUNTRY_OF_ORIGIN] ?? null
-                );
+            if ($calculatedWeight["total_weight"]) {
+                $weight = round($calculatedWeight["total_weight"] / $orderLineItem->getQuantity(), 4);
+                $parcelItem->setUnitWeight(new Weight($weight, 'kg'));
+            } else {
+                $parcelItem->setUnitWeight(null);
             }
+
+            $description = $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_DESCRIPTION] ?? '';
+            if (!$description) {
+                // If no explicit description for this product was provided, use the product name as fallback
+                $description = $orderLineItem->getLabel();
+            }
+
+            $itemCustomsInformation->setDescription($description);
+            $itemCustomsInformation->setTariffNumber(
+                $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_TARIFF_NUMBER] ?? null
+            );
+            $itemCustomsInformation->setCountryIsoOfOrigin(
+                $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_COUNTRY_OF_ORIGIN] ?? null
+            );
         }
         return $this->mergeParcelItemsWithInner($parcel, $orderId, $context);
     }
@@ -197,21 +173,6 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
         foreach ($this->stockUpdaterFunctionsSupplier as $supplier) {
             $this->supportedTypes[] = $supplier->getLineItemType();
         }
-    }
-
-
-    private function getPriceValue(PriceCollection $price, Context $context): float
-    {
-        /** @var Price $currency */
-        $currency = $price->getCurrencyPrice($context->getCurrencyId());
-
-        $value = $this->getPriceForTaxState($currency, $context);
-
-        if ($currency->getCurrencyId() !== $context->getCurrencyId()) {
-            $value *= $context->getCurrencyFactor();
-        }
-
-        return $value;
     }
 
     private function getPriceForTaxState(Price $price, Context $context): float
@@ -232,28 +193,4 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
 
         return $parcel;
     }
-
-    /**
-     * @param OrderLineItemEntity $orderLineItem
-     * @param OrderLineItemProductEntity $lineItemProduct
-     * @return float
-     */
-    private function calculateWeigthFromSubProducts(
-        OrderLineItemEntity $orderLineItem,
-        OrderLineItemProductEntity $lineItemProduct
-    ): float {
-        $calculatedWeight = 0.0;
-        /** @var OrderLineItemProductEntity $lineItemSubProduct */
-        foreach ($orderLineItem->get('lineItemProducts') as $lineItemSubProduct) {
-            $currentParentId = $lineItemSubProduct->getParentId();
-            if (!$currentParentId == $lineItemProduct->getId() || $lineItemSubProduct->getParentId() === null) {
-                continue;
-            }
-            $calculatedWeight += $lineItemSubProduct->getProduct()->getWeight() * $lineItemSubProduct->getQuantity();
-        }
-
-        return $calculatedWeight;
-    }
-
-
 }
