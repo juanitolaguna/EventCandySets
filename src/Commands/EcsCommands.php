@@ -3,6 +3,7 @@
 namespace EventCandy\Sets\Commands;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception;
 use League\Flysystem\FileNotFoundException;
 use League\Flysystem\FilesystemInterface;
 use Shopware\Core\Content\Media\Pathname\UrlGeneratorInterface;
@@ -83,8 +84,7 @@ class EcsCommands extends Command
         EntityRepositoryInterface $documentRepository,
         FilesystemInterface $filesystemPrivate,
         UrlGeneratorInterface $urlGenerator
-    )
-    {
+    ) {
         parent::__construct();
         $this->connection = $connection;
         $this->mediaRepository = $mediaRepository;
@@ -104,15 +104,16 @@ class EcsCommands extends Command
                 't',
                 InputOption::VALUE_OPTIONAL,
                 'Tinker around with code',
-                '0')
+                '0'
+            )
             ->setDescription('Plugin Utils & Automation')
             ->addOption(
                 'delete-orders',
                 'd',
                 InputOption::VALUE_OPTIONAL,
                 'Delete All Orders (inkl Documents)',
-                false);
-
+                false
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -128,41 +129,46 @@ class EcsCommands extends Command
         return 0;
     }
 
+
     private function deleteOrders(InputInterface $input, OutputInterface $output)
     {
         $output->writeln('Delete Orders & Documents');
 
         $sql = "select
-                	*
-                from (
-                	select
-                		d.id as documentId,
-                		m.id as mediaId,
-                		m.file_name,
-                		d.referenced_document_id as referencedDocument
-                	from
-                		`order` o
-                		inner join `document` as d on d.order_id = o.id
-                			and d.order_version_id = o.version_id
-                	left join `media` as m on m.id = d.document_media_file_id
-                		and d.referenced_document_id is not null
-                	union all
-                	select
-                		d.id as documentId,
-                		m.id as mediaId,
-                		m.file_name,
-                		d.referenced_document_id as referencedDocument
-                	from
-                		`order` o
-                	inner join `document` as d on d.order_id = o.id
-                		and d.order_version_id = o.version_id
-                	left join `media` as m on m.id = d.document_media_file_id
-                		and d.referenced_document_id is null) as all_tables
-                order by
-	                referencedDocument desc;";
+            	*
+            from (
+            	select
+            		o.order_number,
+            		o.created_at,
+            		d.id as documentId,
+            		m.id as mediaId,
+            		m.file_name,
+            		d.referenced_document_id as referencedDocument
+            	from
+            		`order` o
+            		inner join `document` as d on d.order_id = o.id
+            			and d.order_version_id = o.version_id
+            	left join `media` as m on m.id = d.document_media_file_id
+            		and d.referenced_document_id is not null
+            	union all
+            	select
+            		o.order_number,
+            		o.created_at,
+            		d.id as documentId,
+            		m.id as mediaId,
+            		m.file_name,
+            		d.referenced_document_id as referencedDocument
+            	from
+            		`order` o
+            	inner join `document` as d on d.order_id = o.id
+            		and d.order_version_id = o.version_id
+            	left join `media` as m on m.id = d.document_media_file_id
+            		and d.referenced_document_id is null) as all_tables
+            		where all_tables.created_at < '2022-03-03'
+            order by
+            	referencedDocument desc;";
 
-        $result = $this->connection->fetchAll($sql);
-
+        $result = $this->connection->fetchAllAssociative($sql);
 
         $documents = array_map(function ($keys) {
             return [
@@ -170,63 +176,66 @@ class EcsCommands extends Command
             ];
         }, $result);
 
+
         $this->documentRepository->delete($documents, Context::createDefaultContext());
+        $output->writeln('Documents removed from DB');
 
         $medias = array_map(function ($keys) {
-            if ($keys['mediaId'] == null) return null;
+            if ($keys['mediaId'] == null) {
+                return null;
+            }
             return Uuid::fromBytesToHex($keys['mediaId']);
         }, $result);
 
+        $output->writeln('Map Media Ids');
 
         $medias = array_values(array_filter($medias));
+
+        $output->writeln(sprintf("Medias to delete: %s", count($medias)));
+
         $filesToDelete = [];
         if (!empty($medias)) {
             $mediaCriteria = new Criteria($medias);
             $toDelete = $this->mediaRepository->search($mediaCriteria, Context::createDefaultContext());
 
+            $output->writeln(sprintf("MediaEntities for deletion found : %s", $toDelete->count()));
+
             foreach ($toDelete as $mediaEntity) {
                 if (!$mediaEntity->hasFile()) {
                     continue;
                 }
-                $filesToDelete[] = $this->urlGenerator->getRelativeMediaUrl($mediaEntity);
+                $filesToDelete[] = $this->urlGenerator->getRelativeMediaUrl($mediaEntity);;
             }
 
             foreach ($filesToDelete as $file) {
                 try {
+                    $output->writeln(sprintf("DELETE: %s", $file));
                     $this->filesystemPrivate->delete($file);
                 } catch (FileNotFoundException $e) {
-                    //ignore file is already deleted
+                    $output->writeln($e->getMessage() . '::' . $e->getLine() . '::' . $e->getPath());
                 }
             }
 
             $deleteMedia = "delete from `media` where media.id in (:mediaIds);";
-            $this->connection->executeStatement($deleteMedia,
-                ['mediaIds' => $medias],
-                ['mediaIds' => Connection::PARAM_STR_ARRAY]
-            );
+            try {
+                $output->writeln(sprintf("Remove mediaIds from Database"));
+                $this->connection->executeStatement($deleteMedia,
+                    ['mediaIds' => Uuid::fromHexToBytesList($medias)],
+                    ['mediaIds' => Connection::PARAM_STR_ARRAY]
+                );
+            } catch (Exception $e) {
+                $output->writeln($e->getMessage() . '::' . $e->getLine() . '::' . $e->getPath());
+            }
         }
 
 
-        $orderSql = "select
-                    	id,
-                    	version_id
-                    from
-                    	`order`
-                    where
-                    	version_id <> :versionId;";
+        $output->writeln("Remove Orders");
 
-        $orderResult = $this->connection->fetchAll($orderSql, [
-            'versionId' => Defaults::LIVE_VERSION
-        ]);
-
-        $orders = array_map(function ($keys) {
-            return [
-                'id' => Uuid::fromBytesToHex($keys['id']),
-                'versionId' => Uuid::fromBytesToHex($keys['version_id'])
-            ];
-        }, $orderResult);
-        $this->orderRepository->delete($orders, Context::createDefaultContext());
-
+        try {
+            $this->connection->executeStatement("delete from `order` where created_at < '2022-03-03';");
+        } catch (Exception $e) {
+            $output->writeln($e->getMessage() . '::' . $e->getLine() . '::' . $e->getPath());
+        }
 
         $output->writeln(print_r($filesToDelete, true));
         $output->writeln(print_r($medias, true));
@@ -237,6 +246,4 @@ class EcsCommands extends Command
     {
         $output->writeln('Write some code here...');
     }
-
-
 }

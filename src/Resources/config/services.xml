@@ -164,5 +164,11 @@
             <tag name="console.command"/>
         </service>
 
+        <service id="EventCandy\Sets\Commands\UpdateStockCommand">
+            <argument type="service" id="ec.stock-updater"/>
+            <argument type="service" id="product.repository"/>
+            <tag name="console.command"/>
+        </service>
+
     </services>
 </container>
