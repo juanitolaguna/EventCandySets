@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-namespace EventCandy\Sets\Core\Checkout\Cart;
+namespace EventCandy\Sets\Core\Checkout\Cart\CartHandlerBundle;
 
-use EventCandy\Sets\Utils;
+use EventCandy\Sets\Core\Checkout\Cart\CartHandler\AggregateCartProcessorInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
-use Shopware\Core\Checkout\Cart\CartProcessorInterface;
 use Shopware\Core\Checkout\Cart\Exception\MissingLineItemPriceException;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\Price\QuantityPriceCalculator;
@@ -17,7 +16,7 @@ use Shopware\Core\Content\Product\Cart\ProductStockReachedError;
 use Shopware\Core\Content\Product\Cart\PurchaseStepsError;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-class SetProductCartProcessor implements CartProcessorInterface
+class SetProductCartProcessor implements AggregateCartProcessorInterface
 {
 
     /**

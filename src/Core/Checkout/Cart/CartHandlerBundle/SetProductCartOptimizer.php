@@ -1,30 +1,37 @@
 <?php
+
 declare(strict_types=1);
 
-namespace EventCandy\Sets\Core\Checkout\Cart\CollectorOptimizer;
+namespace EventCandy\Sets\Core\Checkout\Cart\CartHandlerBundle;
 
+use Doctrine\DBAL\Exception;
+use EventCandy\Sets\Core\Checkout\Cart\CartHandler\AggregateCartOptimizer\CartOptimizer\CartOptimizerInterface;
 use EventCandy\Sets\Core\Checkout\Cart\SetProductCartCollector;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductRepositoryInterface;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-class SetProductCollectorOptimizer implements CollectorOptimizerInterface
+class SetProductCartOptimizer implements CartOptimizerInterface
 {
-    /**
-     * @var DynamicProductService
-     */
-    private $dynamicProductService;
 
-    /**
-     * @param DynamicProductService $dynamicProductService
-     */
-    public function __construct(DynamicProductService $dynamicProductService)
+    private DynamicProductService $dynamicProductService;
+
+    private DynamicProductRepositoryInterface $dynamicProductRepository;
+
+    public function __construct(DynamicProductService $dynamicProductService,
+        DynamicProductRepositoryInterface $dynamicProductRepository
+    )
     {
         $this->dynamicProductService = $dynamicProductService;
+        $this->dynamicProductRepository = $dynamicProductRepository;
     }
 
+    /**
+     * @throws Exception
+     */
     public function saveDynamicProductsBeforeCollect(
         CartDataCollection $data,
         Cart $original,
@@ -39,7 +46,6 @@ class SetProductCollectorOptimizer implements CollectorOptimizerInterface
             $lineItems,
             $context->getToken()
         );
-
-        $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
+        $this->dynamicProductRepository->saveDynamicProductsToDb($dynamicProducts);
     }
 }

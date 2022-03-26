@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Subscriber;
 
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductRepositoryInterface;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
 use EventCandy\Sets\Core\Event\BeforeLineItemAddToCartEvent;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
@@ -14,23 +15,20 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class LineItemAddToCartSubscriber implements EventSubscriberInterface
 {
 
-    /**
-     * @var DynamicProductService
-     */
-    private $dynamicProductService;
 
-    /**
-     * @var CartPersisterInterface
-     */
-    private $cartPersister;
+    private DynamicProductService $dynamicProductService;
 
-    /**
-     * @param DynamicProductService $dynamicProductService
-     * @param CartPersisterInterface $cartPersister
-     */
-    public function __construct(DynamicProductService $dynamicProductService, CartPersisterInterface $cartPersister)
-    {
+    private DynamicProductRepositoryInterface $dynamicProductRepository;
+
+    private CartPersisterInterface $cartPersister;
+
+    public function __construct(
+        DynamicProductService $dynamicProductService,
+        DynamicProductRepositoryInterface $dynamicProductRepository,
+        CartPersisterInterface $cartPersister
+    ) {
         $this->dynamicProductService = $dynamicProductService;
+        $this->dynamicProductRepository = $dynamicProductRepository;
         $this->cartPersister = $cartPersister;
     }
 
@@ -55,7 +53,7 @@ class LineItemAddToCartSubscriber implements EventSubscriberInterface
             $lineItems,
             $context->getToken()
         );
-        $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts, true);
+        $this->dynamicProductRepository->saveDynamicProductsToDb($dynamicProducts, true);
     }
 
 

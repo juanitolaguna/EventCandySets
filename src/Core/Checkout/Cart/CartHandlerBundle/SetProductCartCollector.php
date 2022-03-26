@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Checkout\Cart;
 
+use EventCandy\Sets\Core\Checkout\Cart\CartHandler\AggregateCartCollectorInterface;
+use EventCandy\Sets\Core\Checkout\Cart\CartHandlerBundle\SetProductCartOptimizer;
 use EventCandy\Sets\Core\Checkout\Cart\CartProduct\CartProductService;
+use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadRepository\PayloadRepository;
+use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadRepository\PayloadRepositoryInterface;
 use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadService;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductGateway;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductRepository\DynamicProductRepositoryInterface;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService\DynamicProductService;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
-use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
-use Shopware\Core\Checkout\Cart\CartDataCollectorInterface;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryInformation;
 use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryTime;
@@ -23,66 +26,46 @@ use Shopware\Core\Checkout\Cart\LineItem\QuantityInformation;
 use Shopware\Core\Defaults;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
-class SetProductCartCollector implements CartDataCollectorInterface
+class SetProductCartCollector implements AggregateCartCollectorInterface
 {
 
     public const TYPE = 'setproduct';
 
-    /**
-     * @var CartPersisterInterface
-     */
-    private $cartPersister;
+    private CartPersisterInterface $cartPersister;
 
-    /**
-     * @var DynamicProductService
-     */
-    private $dynamicProductService;
+    private DynamicProductService $dynamicProductService;
 
-    /**
-     * @var DynamicProductGateway
-     */
-    private $dynamicProductGateway;
+    private DynamicProductRepositoryInterface $dynamicProductRepository;
 
-    /**
-     * @var LineItemPriceService
-     */
-    private $lineItemPriceService;
+    private DynamicProductGateway $dynamicProductGateway;
 
-    /**
-     * @var PayloadService
-     */
-    private $payloadService;
+    private LineItemPriceService $lineItemPriceService;
 
-    /**
-     * @var CartProductService
-     */
-    private $cartProductService;
+    private PayloadService $payloadService;
 
+    private PayloadRepositoryInterface $payloadRepository;
 
-    /**
-     * @param CartPersisterInterface $cartPersister
-     * @param DynamicProductService $dynamicProductService
-     * @param DynamicProductGateway $dynamicProductGateway
-     * @param LineItemPriceService $lineItemPriceService
-     * @param PayloadService $payloadService
-     * @param CartProductService $cartProductService
-     */
+    private CartProductService $cartProductService;
+
     public function __construct(
         CartPersisterInterface $cartPersister,
         DynamicProductService $dynamicProductService,
+        DynamicProductRepositoryInterface $dynamicProductRepository,
         DynamicProductGateway $dynamicProductGateway,
         LineItemPriceService $lineItemPriceService,
         PayloadService $payloadService,
+        PayloadRepositoryInterface $payloadRepository,
         CartProductService $cartProductService
     ) {
         $this->cartPersister = $cartPersister;
         $this->dynamicProductService = $dynamicProductService;
+        $this->dynamicProductRepository = $dynamicProductRepository;
         $this->dynamicProductGateway = $dynamicProductGateway;
         $this->lineItemPriceService = $lineItemPriceService;
         $this->payloadService = $payloadService;
+        $this->payloadRepository = $payloadRepository;
         $this->cartProductService = $cartProductService;
     }
-
 
     public function collect(
         CartDataCollection $data,
@@ -91,38 +74,21 @@ class SetProductCartCollector implements CartDataCollectorInterface
         CartBehavior $behavior
     ): void {
 
-        $lineItemsChanged = $this->getNotCompleted($data, $original->getLineItems()->getElements(), $original->isModified());
-        if (count($lineItemsChanged) === 0) {
-            return;
-        }
-
-        //Utils::log('collectSets');
-
         $lineItems = $original->getLineItems()->filterFlatByType(self::TYPE);
-        $this->createCartIfNotExists($context, $original);
+        $dynamicProductIds = $this->dynamicProductRepository->getDynamicProductIds($original->getToken(), $lineItems);
 
-        foreach ($lineItems as $lineItem) {
-            $this->dynamicProductService->removeDynamicProductsByLineItemId($lineItem->getId(), $context->getToken());
-            //$this->cartProductService->removeCartProductsByLineItem($lineItem->getId(), $context->getToken());
-        }
-        $this->cartProductService->removeCartProductsByTokenAndType($context->getToken(), self::TYPE);
-        $data->clear();
 
-        $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $original->getToken());
-        $dynamicProductIds = $this->dynamicProductService->getDynamicProductIdsFromCollection($dynamicProducts);
-        $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
-
+        // ToDo: ↓
         $dynamicProductCollection = $this->dynamicProductGateway->get($dynamicProductIds, $context, false);
         $this->dynamicProductService->addDynamicProductsToCartDataByLineItemId($dynamicProductCollection, $data);
 
-        /** @var LineItem $lineItem */
         foreach ($lineItems as $lineItem) {
-            $this->payloadService->loadPayloadDataForLineItem($lineItem, $data, $context);
+            $this->payloadRepository->loadPayloadDataForLineItem($lineItem, $data, $context);
             $cartProducts = $this->cartProductService->buildCartProductsFromPayload($lineItem, $data, self::TYPE);
             $this->cartProductService->saveCartProducts($cartProducts);
+
             $this->dynamicProductService->removeDynamicProductsFromCartDataByLineItemId($lineItem->getId(), $data);
         }
-
 
         // repeat it again but with correct stock
         $dynamicProductCollection = $this->dynamicProductGateway->get($dynamicProductIds, $context);
@@ -135,10 +101,6 @@ class SetProductCartCollector implements CartDataCollectorInterface
             $payloadAssociative = $this->payloadService->makePayloadDataAssociative($payloadItem, self::TYPE);
             $lineItem->setPayload($payloadAssociative);
         }
-
-
-//        $this->dynamicProductService->removeDynamicProductsByNotInIds($dynamicProductIds);
-//        $this->cartProductService->removeCartProductsByNotInIds($dynamicProductIds);
     }
 
     private function enrichLineItem(
@@ -207,73 +169,6 @@ class SetProductCartCollector implements CartDataCollectorInterface
         ];
 
         $lineItem->replacePayload($payload);
-    }
-
-    private function getNotCompleted(CartDataCollection $data, array $lineItems, bool $cartModified): array
-    {
-        $includesCreditLineItem = array_filter($lineItems, function (LineItem $lineItem) {
-            return $lineItem->getType() === LineItem::CREDIT_LINE_ITEM_TYPE;
-        });
-
-        if($includesCreditLineItem) {
-            return [];
-        }
-
-        $newLineItems = [];
-
-        $areModified = array_filter($lineItems, function (LineItem $lineItem) {
-            //return $lineItem->isModified();
-        });
-
-        // If one Item is modified recalculate all.
-        if (count($areModified) > 0) {
-            return $lineItems;
-        }
-
-        // No items modified but one deleted
-        if ($cartModified) {
-            return $lineItems;
-        }
-
-        /** @var LineItem $lineItem */
-        foreach ($lineItems as $lineItem) {
-            $key = DynamicProductService::DYNAMIC_PRODUCT_LINE_ITEM_ID . $lineItem->getId();
-
-            // check if some data is missing (label, price, cover)
-            if (!$this->isComplete($lineItem)) {
-                $newLineItems[] = $lineItem;
-                continue;
-            }
-
-            // data already fetched?
-            if ($data->has($key)) {
-                continue;
-            }
-            $lineItems[] = $lineItem;
-        }
-
-        return $newLineItems;
-    }
-
-    private function isComplete(LineItem $lineItem): bool
-    {
-        return $lineItem->getPriceDefinition() !== null
-            && $lineItem->getLabel() !== null
-            && $lineItem->getDeliveryInformation() !== null
-            && $lineItem->getQuantityInformation() !== null;
-    }
-
-    /**
-     * @param SalesChannelContext $context
-     * @param Cart $original
-     */
-    private function createCartIfNotExists(SalesChannelContext $context, Cart $original): void
-    {
-        try {
-            $this->cartPersister->load($context->getToken(), $context);
-        } catch (CartTokenNotFoundException $exception) {
-            $this->cartPersister->save($original, $context);
-        }
     }
 
 }

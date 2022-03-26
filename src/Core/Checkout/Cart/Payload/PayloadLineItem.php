@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Checkout\Cart\Payload;
 
-use EventCandy\Sets\Utils;
-
 class PayloadLineItem
 {
     /**

@@ -8,9 +8,8 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use EventCandy\Sets\Core\Checkout\Cart\Exception\PayloadMissingInCartDataException;
 use EventCandy\Sets\Core\Checkout\Cart\Exception\ProductsMissingInPayloadObjectException;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService\DynamicProductService;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
-use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -44,54 +43,6 @@ class PayloadService
     }
 
     /**
-     * Fetches the required data to build the subproducts payload and saves it to the CartDataCollection.
-     * For Performance gain same method is used to fetch data to build the CartProduct collection.
-     * Hence 'subproducts' are needed for 2 Different DataStructures but are fetched only once from Db.
-     * @throws Exception
-     */
-    public function loadPayloadDataForLineItem(
-        LineItem $lineItem,
-        CartDataCollection $data,
-        SalesChannelContext $context
-    ): void {
-        $sqlSetProducts = "
-                SELECT
-                	dp.id AS dynamicProductId,
-                	IFNULL(pp.product_id, mainProduct.id) as product_id,
-                	IFNULL(pp.quantity, 1) as quantity, 
-                	IFNULL(pt.name, mainProductTranslation.name) as name,
-                	IFNULL(p.product_number, mainProduct.product_number) as product_number,
-                	IFNULL(p.weight, IF(pp.product_id IS NULL, IFNULL(mainProduct.weight, 0.0), 0.0)) AS weight
-                FROM
-                	ec_dynamic_product AS dp
-                	LEFT JOIN ec_product_product pp ON dp.product_id = pp.set_product_id
-                	LEFT JOIN product_translation pt ON pp.product_id = pt.product_id
-                	LEFT JOIN product p ON pp.product_id = p.id
-                	LEFT JOIN product_translation mainProductTranslation ON :mainProductId = mainProductTranslation.product_id
-                	LEFT JOIN product mainProduct ON :mainProductId = mainProduct.id
-                WHERE
-                	dp.id = :dynamicProductId AND mainProductTranslation.language_id = :languageId;";
-
-
-        /** @var DynamicProductEntity[] $dynamicProducts */
-        $dynamicProducts = $this->dynamicProductService
-            ->getFromCartDataByLineItemId($lineItem->getId(), $data);
-
-        foreach ($dynamicProducts as $dynamicProduct) {
-            $key = self::getPayloadKey($dynamicProduct->getId());
-            $result = $this->connection->fetchAllAssociative(
-                $sqlSetProducts,
-                [
-                    'dynamicProductId' => Uuid::fromHexToBytes($dynamicProduct->getId()),
-                    'languageId' => Uuid::fromHexToBytes($context->getContext()->getLanguageId()),
-                    'mainProductId' => Uuid::fromHexToBytes($dynamicProduct->getProductId())
-                ]
-            );
-            $data->set($key, $result);
-        }
-    }
-
-    /**
      * The Idea is to resolve one data structure to multiple representations
      * as associative array, string and maybe serialize and deserialize it for StockUpdater usage.
      * @param array $payloadData
@@ -111,7 +62,7 @@ class PayloadService
         );
 
         foreach ($products as $dynamicProduct) {
-            $payload = $data->get(PayloadService::getPayloadKey($dynamicProduct->getId()));
+            $payload = $data->get(self::getPayloadKey($dynamicProduct->getId()));
             if (!$payload) {
                 throw new PayloadMissingInCartDataException();
             }
@@ -119,7 +70,6 @@ class PayloadService
             $product = $dynamicProduct->getProduct();
 
             $payloadProducts = $this->getSubProductsFromPayload($payload, $dynamicProduct);
-            //Utils::log(print_r($payloadProducts, true));
 
             $payloadLineItemProduct = new PayloadLineItemProduct(
                 $product->getProductNumber(),

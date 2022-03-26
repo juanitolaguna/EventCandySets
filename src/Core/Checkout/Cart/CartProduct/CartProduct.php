@@ -1,65 +1,33 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Checkout\Cart\CartProduct;
 
-use EventCandy\Sets\Test\CartProcessorTest;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\Framework\Struct\Struct;
 
-class CartProduct extends Struct {
+class CartProduct extends Struct
+{
 
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $uniqueId;
+    protected string $uniqueId;
 
-    /**
-     * @var string
-     */
-    protected $token;
+    protected string $token;
 
-    /**
-     * @var string
-     */
-    protected $lineItemId;
+    protected string $lineItemId;
 
-    /**
-     * @var string
-     */
-    protected $productId;
+    protected string $productId;
 
-    /**
-     * @var string
-     */
-    protected $subProductId;
+    protected string $subProductId;
 
-    /**
-     * @var int
-     */
-    protected $subProductQuantity;
+    protected int $subProductQuantity;
 
-    /**
-     * @var int
-     */
-    protected $lineItemQuantity;
+    protected int $lineItemQuantity;
 
-    /**
-     * @var string
-     */
-    protected $lineItemType;
+    protected string $lineItemType;
 
-    /**
-     * @param string $uniqueId
-     * @param string $token
-     * @param string $lineItemId
-     * @param string $productId
-     * @param string $subProductId
-     * @param int $subProductQuantity
-     * @param int $lineItemQuantity
-     * @param string $lineItemType
-     */
     public function __construct(
         string $uniqueId,
         string $token,
@@ -80,65 +48,41 @@ class CartProduct extends Struct {
         $this->lineItemType = $lineItemType;
     }
 
-    /**
-     * @return string
-     */
     public function getUniqueId(): string
     {
         return $this->uniqueId;
     }
 
-    /**
-     * @return string
-     */
     public function getToken(): string
     {
         return $this->token;
     }
 
-    /**
-     * @return string
-     */
     public function getLineItemId(): string
     {
         return $this->lineItemId;
     }
 
-    /**
-     * @return string
-     */
     public function getProductId(): string
     {
         return $this->productId;
     }
 
-    /**
-     * @return string
-     */
     public function getSubProductId(): string
     {
         return $this->subProductId;
     }
 
-    /**
-     * @return int
-     */
     public function getSubProductQuantity(): int
     {
         return $this->subProductQuantity;
     }
 
-    /**
-     * @return int
-     */
     public function getLineItemQuantity(): int
     {
         return $this->lineItemQuantity;
     }
 
-    /**
-     * @return string
-     */
     public function getLineItemType(): string
     {
         return $this->lineItemType;

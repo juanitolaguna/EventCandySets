@@ -20,35 +20,22 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 class CartProductService
 {
+    protected Connection $connection;
 
-    /**
-     * @var Connection
-     */
-    protected $connection;
+    protected DynamicProductService $dynamicProductService;
 
-    /**
-     * @var DynamicProductService
-     */
-    protected $dynamicProductService;
-
-    /**
-     * @param Connection $connection
-     * @param DynamicProductService $dynamicProductService
-     */
     public function __construct(Connection $connection, DynamicProductService $dynamicProductService)
     {
         $this->connection = $connection;
         $this->dynamicProductService = $dynamicProductService;
     }
 
-
     /**
-     * @param CartProduct[] $cartProducts
+     * @param array<CartProduct> $cartProducts
      * @throws Exception
      */
     public function saveCartProducts(array $cartProducts)
     {
-
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(
@@ -74,7 +61,6 @@ class CartProductService
     }
 
     /**
-     * @param string $token
      * @throws Exception
      */
     public function removeCartProductsByTokenAndType(string $token, string $type)
@@ -86,7 +72,6 @@ class CartProductService
     }
 
     /**
-     * @param string $token
      * @throws Exception
      */
     public function removeCartProductsByToken(string $token)
@@ -98,8 +83,6 @@ class CartProductService
     }
 
     /**
-     * @param array $lineItemIds
-     * @param string $token
      * @throws Exception
      */
     public function removeCartProductsByLineItemIds(array $lineItemIds, string $token)
@@ -112,8 +95,6 @@ class CartProductService
     }
 
     /**
-     * @param string $lineItemId
-     * @param string $token
      * @throws Exception
      */
     public function removeCartProductsByLineItem(string $lineItemId, string $token)
@@ -127,7 +108,7 @@ class CartProductService
     /**
      * @param LineItem $lineItem
      * @param CartDataCollection $data
-     * @param SalesChannelContext $context
+     * @param string $type
      * @return array
      * @throws DynamicProductsInCartDataCollectionMissingException
      */
@@ -161,7 +142,7 @@ class CartProductService
      * @param LineItem $lineItem
      * @param DynamicProductEntity $dynamicProductEntity
      * @param array $payload
-     * @param array $cartProducts
+     * @param string $type
      * @return array
      */
     private function createCartProductsFromPayload(
@@ -212,9 +193,5 @@ class CartProductService
     public function getCartProductsByToken(string $token): array {
         $sql = "SELECT * FROM ec_cart_product WHERE token = :token";
         return $this->connection->fetchAllAssociative($sql, ['token' => $token]);
-
-
     }
-
-
 }

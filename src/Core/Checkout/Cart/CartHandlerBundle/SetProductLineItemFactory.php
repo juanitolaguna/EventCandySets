@@ -1,6 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
-namespace EventCandy\Sets\Core\Checkout\Cart\LineItemFactoryHandler;
+namespace EventCandy\Sets\Core\Checkout\Cart\CartHandlerBundle;
 
 use Shopware\Core\Checkout\Cart\Exception\InsufficientPermissionException;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
@@ -10,6 +11,9 @@ use Shopware\Core\Content\Product\Cart\ProductCartProcessor;
 use Shopware\Core\Framework\Struct\ArrayEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
+/**
+ * ToDo: refactor - maybe extend one standard factory & override the type
+ */
 class SetProductLineItemFactory implements LineItemFactoryInterface
 {
     public const TYPE = 'setproduct';
@@ -55,15 +59,19 @@ class SetProductLineItemFactory implements LineItemFactoryInterface
 
         if (isset($data['quantity'])) {
             $lineItem->markModified();
-            $lineItem->setQuantity((int) $data['quantity']);
+            $lineItem->setQuantity((int)$data['quantity']);
         }
 
-        if (isset($data['priceDefinition']) && !$context->hasPermission(ProductCartProcessor::ALLOW_PRODUCT_PRICE_OVERWRITES)) {
+        if (isset($data['priceDefinition']) && !$context->hasPermission(
+                ProductCartProcessor::ALLOW_PRODUCT_PRICE_OVERWRITES
+            )) {
             throw new InsufficientPermissionException();
         }
 
         if (isset($data['priceDefinition'])) {
-            $lineItem->setPriceDefinition($this->priceDefinitionFactory->factory($context->getContext(), $data['priceDefinition'], $data['type']));
+            $lineItem->setPriceDefinition(
+                $this->priceDefinitionFactory->factory($context->getContext(), $data['priceDefinition'], $data['type'])
+            );
         }
     }
 }
