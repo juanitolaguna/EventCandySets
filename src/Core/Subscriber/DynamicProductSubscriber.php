@@ -49,7 +49,7 @@ class DynamicProductSubscriber implements EventSubscriberInterface
     /**
      * DynamicProductLoaded event is thrown by DynamicProductGateway.
      * It fetches DynamicProductEntities for the CartCollector.
-     * DynamicProduct is a wrapper around possibly 2 equal Products, with a unique id
+     * DynamicProductStruct is a wrapper around possibly 2 equal Products, with a unique id
      * to resolve the self reference problem when calculating available stock for setproducts dynamically
      * considering warehouse(subproducts) in stock & warehouse(subproducts) in cart.
      */

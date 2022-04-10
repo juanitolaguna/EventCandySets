@@ -1,8 +1,8 @@
 <?php declare(strict_types=1);
 
-namespace EventCandy\Sets\Core\Content\DynamicProduct\Cart;
+namespace EventCandy\Sets\Core\Content\DynamicProductStruct;
 
-class DynamicProduct {
+class DynamicProductStruct {
 
     /**
      * @var string

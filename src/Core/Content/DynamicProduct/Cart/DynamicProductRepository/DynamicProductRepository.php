@@ -6,7 +6,8 @@ namespace EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductReposit
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProduct;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductStruct;
+use EventCandy\Sets\Core\Content\DynamicProductStruct\DynamicProductStructCollection\DynamicProductStructCollectionInterface;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\RetryableQuery;
@@ -21,8 +22,10 @@ class DynamicProductRepository implements DynamicProductRepositoryInterface
         $this->connection = $connection;
     }
 
-    public function saveDynamicProductsToDb(array $dynamicProducts, $isNew = false): void
-    {
+    public function saveDynamicProductsToDb(
+        DynamicProductStructCollectionInterface $dynamicProducts,
+        $isNew = false
+    ): void {
         $query = new RetryableQuery(
             $this->connection,
             $this->connection->prepare(

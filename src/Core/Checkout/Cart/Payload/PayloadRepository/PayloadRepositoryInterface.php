@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadRepository;
 
 use Doctrine\DBAL\Exception;
-use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
+use EventCandy\Sets\Core\Checkout\Cart\Collections\DynamicProductPayloadCollection\DynamicProductPayloadCollection;
+use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
@@ -19,7 +20,8 @@ interface PayloadRepositoryInterface
      */
     public function loadPayloadDataForLineItem(
         LineItem $lineItem,
-        CartDataCollection $data,
+        DynamicProductCollection $dynamicProducts,
+        DynamicProductPayloadCollection $data,
         SalesChannelContext $context
     ): void;
 }

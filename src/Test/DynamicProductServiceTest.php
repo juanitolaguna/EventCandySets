@@ -6,7 +6,7 @@ namespace EventCandy\Sets\Test;
 
 
 use Doctrine\DBAL\Connection;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProduct;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductStruct;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductGateway;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
@@ -70,12 +70,12 @@ class DynamicProductServiceTest extends TestCase
         $cart = Generator::createCart();
         $lineItems = $cart->getLineItems()->getElements();
 
-        /** @var DynamicProduct[] $dynamicProducts */
+        /** @var DynamicProductStruct[] $dynamicProducts */
         $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $cart->getToken());
 
         $dynamicProductIds = $this->dynamicProductService->getDynamicProductIdsFromCollection($dynamicProducts);
 
-        self::assertContainsOnlyInstancesOf(DynamicProduct::class, $dynamicProducts);
+        self::assertContainsOnlyInstancesOf(DynamicProductStruct::class, $dynamicProducts);
         foreach ($dynamicProductIds as $id) {
             self::assertIsString($id, "The elements in the dynamicProductIds array have a wrong datatype\n");
         }
@@ -94,7 +94,7 @@ class DynamicProductServiceTest extends TestCase
         $this->cartPersister->save($cart, $context);
         $lineItems = $cart->getLineItems()->getElements();
 
-        /** @var DynamicProduct[] $dynamicProducts */
+        /** @var DynamicProductStruct[] $dynamicProducts */
         $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $cart->getToken());
         $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
 
@@ -127,7 +127,7 @@ class DynamicProductServiceTest extends TestCase
         $this->cartPersister->save($cart, $context);
         $lineItems = $cart->getLineItems()->getElements();
 
-        /** @var DynamicProduct[] $dynamicProducts */
+        /** @var DynamicProductStruct[] $dynamicProducts */
         $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $cart->getToken());
         $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
 

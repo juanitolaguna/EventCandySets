@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Checkout\Cart\CartHandlerBundle;
 
-use Doctrine\DBAL\Exception;
 use EventCandy\Sets\Core\Checkout\Cart\CartHandler\AggregateCartOptimizer\CartOptimizer\CartOptimizerInterface;
 use EventCandy\Sets\Core\Checkout\Cart\SetProductCartCollector;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductRepositoryInterface;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductRepository\DynamicProductRepositoryInterface;
+use EventCandy\Sets\Core\Content\DynamicProductStruct\DynamicProductStructService\DynamicProductStructServiceInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
@@ -17,21 +16,18 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 class SetProductCartOptimizer implements CartOptimizerInterface
 {
 
-    private DynamicProductService $dynamicProductService;
+    private DynamicProductStructServiceInterface $dynamicProductStructService;
 
     private DynamicProductRepositoryInterface $dynamicProductRepository;
 
-    public function __construct(DynamicProductService $dynamicProductService,
+    public function __construct(
+        DynamicProductStructServiceInterface $dynamicProductStructService,
         DynamicProductRepositoryInterface $dynamicProductRepository
-    )
-    {
-        $this->dynamicProductService = $dynamicProductService;
+    ) {
+        $this->dynamicProductStructService = $dynamicProductStructService;
         $this->dynamicProductRepository = $dynamicProductRepository;
     }
 
-    /**
-     * @throws Exception
-     */
     public function saveDynamicProductsBeforeCollect(
         CartDataCollection $data,
         Cart $original,
@@ -42,7 +38,12 @@ class SetProductCartOptimizer implements CartOptimizerInterface
             ->getLineItems()
             ->filterFlatByType(SetProductCartCollector::TYPE);
 
-        $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection(
+        $this->saveDynamicProducts($lineItems, $context);
+    }
+
+    private function saveDynamicProducts(array $lineItems, SalesChannelContext $context): void
+    {
+        $dynamicProducts = $this->dynamicProductStructService->createDynamicProductStructCollection(
             $lineItems,
             $context->getToken()
         );

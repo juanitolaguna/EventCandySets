@@ -7,6 +7,7 @@ namespace EventCandy\Sets\Core\Checkout\Cart;
 use EventCandy\Sets\Core\Checkout\Cart\CartHandler\AggregateCartCollectorInterface;
 use EventCandy\Sets\Core\Checkout\Cart\CartHandlerBundle\SetProductCartOptimizer;
 use EventCandy\Sets\Core\Checkout\Cart\CartProduct\CartProductService;
+use EventCandy\Sets\Core\Checkout\Cart\Collections\DynamicProductPayloadCollection\DynamicProductPayloadCollection;
 use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadRepository\PayloadRepository;
 use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadRepository\PayloadRepositoryInterface;
 use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadService;
@@ -73,17 +74,45 @@ class SetProductCartCollector implements AggregateCartCollectorInterface
         SalesChannelContext $context,
         CartBehavior $behavior
     ): void {
-
         $lineItems = $original->getLineItems()->filterFlatByType(self::TYPE);
+
         $dynamicProductIds = $this->dynamicProductRepository->getDynamicProductIds($original->getToken(), $lineItems);
 
-
         // ToDo: ↓
+
+        /**
+         * Steps:
+         * - fetch all dynamic products (without associations) in one query,
+         * - write them into the data object, using the lineItem Id key
+         *
+         * - use them to fetch additional PayloadData for each lineItem
+         * - use the payload data to create & write CartProducts into the Db
+         * - remove the dynamic products from data object
+         */
+
+
+
         $dynamicProductCollection = $this->dynamicProductGateway->get($dynamicProductIds, $context, false);
-        $this->dynamicProductService->addDynamicProductsToCartDataByLineItemId($dynamicProductCollection, $data);
+
+        $lineItemDynamicProductCollection = $this->dynamicProductService->createLineItemDynamicProductCollection(
+            $dynamicProductCollection
+        );
+
+        $dynamicProductPayloadCollection = new DynamicProductPayloadCollection();
 
         foreach ($lineItems as $lineItem) {
-            $this->payloadRepository->loadPayloadDataForLineItem($lineItem, $data, $context);
+
+            $dynamicProducts = $lineItemDynamicProductCollection->get(DynamicProductService::lineItemKey(
+                $lineItem->getId()
+            ));
+
+            $this->payloadRepository->loadPayloadDataForLineItem(
+                $lineItem,
+                $dynamicProducts,
+                $dynamicProductPayloadCollection,
+                $context
+            );
+
             $cartProducts = $this->cartProductService->buildCartProductsFromPayload($lineItem, $data, self::TYPE);
             $this->cartProductService->saveCartProducts($cartProducts);
 
@@ -92,7 +121,7 @@ class SetProductCartCollector implements AggregateCartCollectorInterface
 
         // repeat it again but with correct stock
         $dynamicProductCollection = $this->dynamicProductGateway->get($dynamicProductIds, $context);
-        $this->dynamicProductService->addDynamicProductsToCartDataByLineItemId($dynamicProductCollection, $data);
+        $this->dynamicProductService->createLineItemDynamicProductCollection($dynamicProductCollection, $data);
 
         foreach ($lineItems as $lineItem) {
             $this->enrichLineItem($lineItem, $data, $context);

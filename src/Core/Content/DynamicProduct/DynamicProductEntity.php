@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Content\DynamicProduct;
 
@@ -10,110 +12,63 @@ class DynamicProductEntity extends Entity
 {
     use EntityIdTrait;
 
-    /**
-     * @var string
-     */
-    protected $token;
+    protected string $token;
 
-    /**
-     * @var string
-     */
-    protected $productId;
+    protected string $productId;
 
-    /**
-     * @var ProductEntity|null
-     */
-    protected $product;
+    protected ?ProductEntity $product;
 
+    protected string $lineItemId;
 
-    /**
-     * @var string
-     */
-    protected $lineItemId;
+    protected ?bool $isNew;
 
-    /**
-     * @var bool|null
-     */
-    protected $isNew;
-
-    /**
-     * @return string
-     */
     public function getToken(): string
     {
         return $this->token;
     }
 
-    /**
-     * @param string $token
-     */
     public function setToken(string $token): void
     {
         $this->token = $token;
     }
 
-    /**
-     * @return string
-     */
     public function getProductId(): string
     {
         return $this->productId;
     }
 
-    /**
-     * @param string $productId
-     */
     public function setProductId(string $productId): void
     {
         $this->productId = $productId;
     }
 
-    /**
-     * @return ProductEntity|null
-     */
     public function getProduct(): ?ProductEntity
     {
         return $this->product;
     }
 
-    /**
-     * @param ProductEntity|null $product
-     */
     public function setProduct(?ProductEntity $product): void
     {
         $this->product = $product;
     }
 
-    /**
-     * @return string
-     */
     public function getLineItemId(): string
     {
         return $this->lineItemId;
     }
 
-    /**
-     * @param string $lineItemId
-     */
     public function setLineItemId(string $lineItemId): void
     {
         $this->lineItemId = $lineItemId;
     }
 
-    /**
-     * @return bool|null
-     */
     public function getIsNew(): ?bool
     {
         return $this->isNew;
     }
 
-    /**
-     * @param bool|null $isNew
-     */
     public function setIsNew(?bool $isNew): void
     {
         $this->isNew = $isNew;
     }
-
 }

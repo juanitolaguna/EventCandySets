@@ -8,7 +8,7 @@ use Doctrine\DBAL\Exception;
 use EventCandy\Sets\Core\Checkout\Cart\CartHandler\AggregateCartOptimizer\CartOptimizer\CartOptimizerInterface;
 use EventCandy\Sets\Core\Checkout\Cart\CartProduct\CartProductService;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductRepository\DynamicProductRepositoryInterface;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService\DynamicProductService;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService\DynamicProductServiceInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
 use Shopware\Core\Checkout\Cart\CartPersisterInterface;
@@ -29,7 +29,7 @@ class AggregateCartOptimizerService implements AggregateCartOptimizerInterface
 
     private CartPersisterInterface $cartPersister;
 
-    private DynamicProductService $dynamicProductService;
+    private DynamicProductServiceInterface $dynamicProductService;
 
     private DynamicProductRepositoryInterface $dynamicProductRepository;
 
@@ -41,7 +41,7 @@ class AggregateCartOptimizerService implements AggregateCartOptimizerInterface
     public function __construct(
         array $optimizers,
         CartPersisterInterface $cartPersister,
-        DynamicProductService $dynamicProductService,
+        DynamicProductServiceInterface $dynamicProductService,
         DynamicProductRepositoryInterface $dynamicProductRepository,
         CartProductService $cartProductService
     ) {

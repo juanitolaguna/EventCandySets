@@ -8,7 +8,8 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use EventCandy\Sets\Core\Checkout\Cart\Exception\DynamicProductsInCartDataCollectionMissingException;
 use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadService;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService\DynamicProductService;
+use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
 use EventCandy\Sets\Utils;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
@@ -117,8 +118,9 @@ class CartProductService
         CartDataCollection $data,
         string $type
     ): array {
-        /** @var DynamicProductEntity[] $product */
+        /** @var DynamicProductCollection $products */
         $products = $this->dynamicProductService->getFromCartDataByLineItemId($lineItem->getId(), $data);
+
         if (!$products) {
             throw new DynamicProductsInCartDataCollectionMissingException($lineItem);
         }
@@ -133,7 +135,10 @@ class CartProductService
             }
             $payload = $data->get($key);
 
-            $cartProducts = array_merge($cartProducts, $this->createCartProductsFromPayload($lineItem, $product, $payload, $type));
+            $cartProducts = array_merge(
+                $cartProducts,
+                $this->createCartProductsFromPayload($lineItem, $product, $payload, $type)
+            );
         }
         return $cartProducts;
     }
@@ -190,7 +195,8 @@ class CartProductService
      * @return array
      * @throws Exception
      */
-    public function getCartProductsByToken(string $token): array {
+    public function getCartProductsByToken(string $token): array
+    {
         $sql = "SELECT * FROM ec_cart_product WHERE token = :token";
         return $this->connection->fetchAllAssociative($sql, ['token' => $token]);
     }

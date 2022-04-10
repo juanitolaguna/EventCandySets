@@ -180,7 +180,7 @@ class SalesChannelProductSubscriber implements EventSubscriberInterface
     /**
      * There is a slight difference between the DynamicCartProductSubscriber query an this one.
      * Here we are excluding the product it self by cp.product_id != :uniqueId
-     * In the DynamicCartProductSubscriber the DynamicProduct exclude itself by cp.unique_id != :uniqueId
+     * In the DynamicCartProductSubscriber the DynamicProductStruct exclude itself by cp.unique_id != :uniqueId
      * where uniqueId equals dynamicProductId
      * @return string
      */

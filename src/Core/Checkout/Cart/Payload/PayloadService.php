@@ -134,6 +134,7 @@ class PayloadService
     }
 
     /**
+     * ToDo: change param to PayloadStruct
      * @param array $payload
      * @return PayloadLineItemProduct[]
      */

@@ -15,6 +15,13 @@ use Shopware\Core\Checkout\Cart\LineItemFactoryHandler\LineItemFactoryInterface;
  * should implement the Interfaces listed below rather than
  * the @link CartDataCollectorInterface
  * and @link CartProcessorInterface
+ *
+ * Concepts:
+ * DynamicProducts - product of same type may be added multiple times in multiple lineItems.
+ * see the ec_dynamic_product table.
+ * DynamicProducts are written by classes implementing the @link CartOptimizerInterface
+ * Dynamic Products are also used for Payload creation.
+ *
  */
 interface CartHandlerBundle extends
     LineItemFactoryInterface,

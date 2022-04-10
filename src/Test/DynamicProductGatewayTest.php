@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace EventCandy\Sets\Test;
 
 use Doctrine\DBAL\Connection;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProduct;
+use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductStruct;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductGateway;
 use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
@@ -79,7 +79,7 @@ class DynamicProductGatewayTest extends TestCase
         $this->cartPersister->save($cart, $context);
         $lineItems = $cart->getLineItems()->getElements();
 
-        /** @var DynamicProduct[] $dynamicProducts */
+        /** @var DynamicProductStruct[] $dynamicProducts */
         $dynamicProducts = $this->dynamicProductService->createDynamicProductCollection($lineItems, $cart->getToken());
         $this->dynamicProductService->saveDynamicProductsToDb($dynamicProducts);
 

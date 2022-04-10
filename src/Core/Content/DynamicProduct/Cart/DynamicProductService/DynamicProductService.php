@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService;
 
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProduct;
 use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
+use LineItemDynamicProductCollection;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
-use Shopware\Core\Framework\Uuid\Uuid;
 
 class DynamicProductService implements DynamicProductServiceInterface
 {
@@ -16,65 +15,47 @@ class DynamicProductService implements DynamicProductServiceInterface
     /**
      * @inheritDoc
      */
-    public function createDynamicProductCollection(array $lineItems, string $token): array
-    {
-        $collection = [];
-        foreach ($lineItems as $lineItem) {
-            $id = Uuid::randomHex();
-            $collection[] = new DynamicProduct(
-                $id,
-                $token,
-                $lineItem->getReferencedId(),
-                $lineItem->getId()
+    public function createLineItemDynamicProductCollection(
+        DynamicProductCollection $dynamicProductCollection
+    ): LineItemDynamicProductCollection {
+        $collection = new LineItemDynamicProductCollection();
+
+        foreach ($dynamicProductCollection as $product) {
+            $key = self::lineItemKey(
+                $product->getLineItemId()
             );
+
+            if ($collection->has($key)) {
+                /** @var DynamicProductCollection $dynamicProducts */
+                $dynamicProducts= $collection->get($key);
+                $dynamicProducts->add($product);
+                // Do I need that?
+                $collection->set($key, $dynamicProducts);
+            } else {
+                $dynamicProducts = new DynamicProductCollection([$product]);
+                $collection->set($key, $dynamicProducts);
+            }
         }
         return $collection;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getDynamicProductIdsFromCollection(array $dynamicProducts): array
+
+    public function getFromCartDataByLineItemId(string $lineItemId, CartDataCollection $data): ?DynamicProductCollection
     {
-        return array_map(function (DynamicProduct $product) {
-            return $product->getId();
-        }, $dynamicProducts);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function addDynamicProductsToCartDataByLineItemId(
-        DynamicProductCollection $dynamicProductCollection,
-        CartDataCollection $data
-    ): void {
-
-        foreach ($dynamicProductCollection as $product) {
-            $lineItemId = $product->getLineItemId();
-            $key = self::DYNAMIC_PRODUCT_LINE_ITEM_ID . $lineItemId;
-
-            if ($data->has($key)) {
-                $products = $data->get($key);
-                $products[] = $product;
-                $data->set($key, $products);
-            } else {
-                $data->set($key, [$product]);
-            }
-        }
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getFromCartDataByLineItemId(string $lineItemId, CartDataCollection $data): ?array
-    {
-        $key = self::DYNAMIC_PRODUCT_LINE_ITEM_ID . $lineItemId;
-        return $data->get($key);
+        return $data->get(
+            self::lineItemKey($lineItemId)
+        );
     }
 
     public function removeDynamicProductsFromCartDataByLineItemId(string $lineItemId, CartDataCollection $data): void
     {
-        $key = self::DYNAMIC_PRODUCT_LINE_ITEM_ID . $lineItemId;
-        $data->remove($key);
+        $data->remove(
+            self::lineItemKey($lineItemId)
+        );
+    }
+
+    public static function lineItemKey(string $lineItemId): string
+    {
+        return self::DYNAMIC_PRODUCT_LINE_ITEM_ID . $lineItemId;
     }
 }

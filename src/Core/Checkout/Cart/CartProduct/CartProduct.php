@@ -9,7 +9,6 @@ use Shopware\Core\Framework\Struct\Struct;
 
 class CartProduct extends Struct
 {
-
     use EntityIdTrait;
 
     protected string $uniqueId;

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadRepository;
 
 use Doctrine\DBAL\Connection;
+use EventCandy\Sets\Core\Checkout\Cart\Collections\DynamicProductPayloadCollection\DynamicProductPayloadCollection;
 use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadService;
-use EventCandy\Sets\Core\Content\DynamicProduct\Cart\DynamicProductService\DynamicProductServiceInterface;
-use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductEntity;
+use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadStruct;
+use EventCandy\Sets\Core\Checkout\Cart\Payload\PayloadStructCollection;
+use EventCandy\Sets\Core\Content\DynamicProduct\DynamicProductCollection;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -17,25 +19,34 @@ class PayloadRepository implements PayloadRepositoryInterface
 {
     private Connection $connection;
 
-    private DynamicProductServiceInterface $dynamicProductService;
+    private const DYNAMIC_PRODUCT_ID = 'dynamic_product_id';
+    private const PRODUCT_ID = 'product_id';
+    private const QUANTITY = 'quantity';
+    private const NAME = 'name';
+    private const PRODUCT_NUMBER = 'product_number';
+    private const WEIGHT = 'weight';
 
-    public function __construct(Connection $connection, DynamicProductServiceInterface $dynamicProductService)
+
+
+
+    public function __construct(Connection $connection)
     {
         $this->connection = $connection;
-        $this->dynamicProductService = $dynamicProductService;
     }
 
     /**
      * @inheritDoc
+     * [string $dynamicProductId, array<mixed $dynamicProductData>]
      */
     public function loadPayloadDataForLineItem(
         LineItem $lineItem,
-        CartDataCollection $data,
+        DynamicProductCollection $dynamicProducts,
+        DynamicProductPayloadCollection $data,
         SalesChannelContext $context
     ): void {
         $sqlSetProducts = "
                 SELECT
-                	dp.id AS dynamicProductId,
+                	dp.id AS dynamic_product_id,
                 	IFNULL(pp.product_id, mainProduct.id) as product_id,
                 	IFNULL(pp.quantity, 1) as quantity, 
                 	IFNULL(pt.name, mainProductTranslation.name) as name,
@@ -52,10 +63,6 @@ class PayloadRepository implements PayloadRepositoryInterface
                 	dp.id = :dynamicProductId AND mainProductTranslation.language_id = :languageId;";
 
 
-        /** @var DynamicProductEntity[] $dynamicProducts */
-        $dynamicProducts = $this->dynamicProductService
-            ->getFromCartDataByLineItemId($lineItem->getId(), $data);
-
         foreach ($dynamicProducts as $dynamicProduct) {
             $result = $this->connection->fetchAllAssociative(
                 $sqlSetProducts,
@@ -66,8 +73,28 @@ class PayloadRepository implements PayloadRepositoryInterface
                 ]
             );
 
-            $key = PayloadService::getPayloadKey($dynamicProduct->getId());
-            $data->set($key, $result);
+            $result = $this->toCollection($result);
+
+            $data->set($dynamicProduct->getId(), $result);
         }
+    }
+
+    private function toCollection(array $result): PayloadStructCollection
+    {
+        $collection = new PayloadStructCollection();
+
+        foreach ($result as $row) {
+           $payload =  new PayloadStruct(
+                Uuid::fromBytesToHex($row[self::DYNAMIC_PRODUCT_ID]),
+                Uuid::fromBytesToHex($row[self::PRODUCT_ID]),
+                $row[self::QUANTITY],
+                $row[self::NAME],
+                $row[self::PRODUCT_NUMBER],
+                $row[self::WEIGHT]
+            );
+
+           $collection->add($payload);
+        }
+        return $collection;
     }
 }
