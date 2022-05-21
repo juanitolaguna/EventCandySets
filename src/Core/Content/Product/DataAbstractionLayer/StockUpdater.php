@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace EventCandy\Sets\Core\Content\Product\DataAbstractionLayer;
 
@@ -96,8 +97,7 @@ class StockUpdater implements EventSubscriberInterface
         iterable $stockUpdaterFunctionsSupplier,
         EntityRepositoryInterface $orderLineItemProductRepository,
         EntityRepositoryInterface $productRepository
-    )
-    {
+    ) {
         $this->connection = $connection;
         $this->definition = $definition;
         $this->cache = $cache;
@@ -158,7 +158,6 @@ class StockUpdater implements EventSubscriberInterface
         $ids = $this->productIds;
 
         foreach ($event->getWriteResults() as $result) {
-
             if ($result->hasPayload('referencedId')) {
                 $ids[] = $result->getProperty('referencedId');
             }
@@ -227,7 +226,8 @@ class StockUpdater implements EventSubscriberInterface
             return;
         }
 
-        if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED || $event->getFromPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED) {
+        if ($event->getToPlace()->getTechnicalName() === OrderStates::STATE_CANCELLED || $event->getFromPlace(
+            )->getTechnicalName() === OrderStates::STATE_CANCELLED) {
             $products = $this->productIdsOnly(
                 $this->getALlProductsOfOrder($event->getEntityId())
             );
@@ -248,7 +248,6 @@ class StockUpdater implements EventSubscriberInterface
         $this->updateAvailableStockAndSales($ids, $event->getContext());
 
         $this->updateAvailableFlag($ids, $event->getContext());
-
     }
 
     private function decreaseStock(StateMachineTransitionEvent $event): void
@@ -262,7 +261,6 @@ class StockUpdater implements EventSubscriberInterface
         $this->updateAvailableStockAndSales($ids, $event->getContext());
 
         $this->updateAvailableFlag($ids, $event->getContext());
-
     }
 
 
@@ -270,7 +268,9 @@ class StockUpdater implements EventSubscriberInterface
     {
         $query = new RetryableQuery(
             $this->connection,
-            $this->connection->prepare('UPDATE product SET stock = stock + :quantity WHERE id = :id AND version_id = :version')
+            $this->connection->prepare(
+                'UPDATE product SET stock = stock + :quantity WHERE id = :id AND version_id = :version'
+            )
         );
 
         foreach ($products as $product) {
@@ -280,8 +280,6 @@ class StockUpdater implements EventSubscriberInterface
                 'version' => Uuid::fromHexToBytes(Defaults::LIVE_VERSION),
             ]);
         }
-
-
     }
 
 
@@ -339,8 +337,9 @@ class StockUpdater implements EventSubscriberInterface
         $rows = array_column($rows, 'product_id');
 
         $rows = array_filter(array_keys(array_flip($rows)));
+
         return array_map(function ($row) {
-            return Uuid::fromBytesToHex($row);
+                return Uuid::fromBytesToHex($row);
         }, $rows);
     }
 
@@ -374,9 +373,11 @@ class StockUpdater implements EventSubscriberInterface
             return;
         }
 
-        $bytes = Uuid::fromHexToBytesList($ids);
+        $bytes = Uuid::fromHexToBytesList(
+            $this->validUuidsOnly($ids)
+        );
 
-            $sql = "SELECT all_tables.product_id, 
+        $sql = "SELECT all_tables.product_id, 
                 SUM(all_tables.open_quantity) as open_quantity, 
                 SUM(all_tables.sales_quantity) as sales_quantity
                     FROM(SELECT LOWER(HEX(ec_order_line_item_product.product_id)) as product_id,
@@ -410,8 +411,6 @@ class StockUpdater implements EventSubscriberInterface
 	                GROUP BY product_id) AS all_tables GROUP BY product_id;";
 
 
-
-
         $rows = $this->connection->fetchAll(
             $sql,
             [
@@ -432,10 +431,12 @@ class StockUpdater implements EventSubscriberInterface
 
         $update = new RetryableQuery(
             $this->connection,
-            $this->connection->prepare('UPDATE product SET available_stock = stock - :open_quantity, sales = :sales_quantity, updated_at = :now WHERE id = :id')
+            $this->connection->prepare(
+                'UPDATE product SET available_stock = stock - :open_quantity, sales = :sales_quantity, updated_at = :now WHERE id = :id'
+            )
         );
 
-        foreach ($fallback as $id) {
+        foreach ($this->validUuidsOnly($fallback) as $id) {
             $update->execute([
                 'id' => Uuid::fromHexToBytes((string)$id),
                 'open_quantity' => 0,
@@ -452,7 +453,6 @@ class StockUpdater implements EventSubscriberInterface
                 'now' => (new \DateTime())->format(Defaults::STORAGE_DATE_TIME_FORMAT),
             ]);
         }
-
     }
 
     private function updateAvailableFlag(array $ids, Context $context): void
@@ -461,7 +461,9 @@ class StockUpdater implements EventSubscriberInterface
             return;
         }
 
-        $bytes = Uuid::fromHexToBytesList($ids);
+        $bytes = Uuid::fromHexToBytesList(
+            $this->validUuidsOnly($ids)
+        );
 
         $sql = '
             UPDATE product
@@ -513,5 +515,17 @@ class StockUpdater implements EventSubscriberInterface
                 return;
             }
         }
+    }
+
+    /**
+     * @param array<int, string> $ids
+     * @return array<int, string>
+     */
+    private function validUuidsOnly(array $ids): array
+    {
+        return array_filter(
+            $ids,
+            fn($id) => Uuid::isValid($id)
+        );
     }
 }

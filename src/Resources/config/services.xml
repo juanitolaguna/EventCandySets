@@ -16,6 +16,14 @@
             <argument type="tagged" tag="ec.sets.stock_updater_functions"/>
         </service>
 
+        <!-- Cart Scope Packager Decoration -->
+        <service id="EventCandy\Sets\Core\Checkout\Cart\Promotion\CartScopeDiscountPackagerDecorator"
+                 decorates="Shopware\Core\Checkout\Promotion\Cart\Discount\ScopePackager\CartScopeDiscountPackager"
+                 decoration-on-invalid="ignore">
+
+            <argument type="service" id="Shopware\Core\Checkout\Cart\LineItem\LineItemQuantitySplitter"/>
+        </service>
+
         <!-- CustomFieldService -->
 
         <service id="EventCandy\Sets\CustomFieldService">

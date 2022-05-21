@@ -9,6 +9,8 @@ use EventCandy\Sets\Core\Event\DynamicProductLoadedEvent;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -36,6 +38,9 @@ class DynamicProductGateway
     public function get(array $ids, SalesChannelContext $context, bool $calculateStock = true): DynamicProductCollection
     {
         $criteria = new Criteria($ids);
+
+        $criteria->addFilter(new EqualsFilter('token', $context->getToken()));
+
         if ($calculateStock) {
             $criteria->setTitle('cart::dynamicProducts');
             $criteria->addAssociation('product.cover');

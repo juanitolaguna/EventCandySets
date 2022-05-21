@@ -98,9 +98,9 @@ class CollectorOptimizer implements CartDataCollectorInterface
         //Utils::log('optimizer');
         $this->createCartIfNotExists($context, $original);
 
-        $lineItemIds = array_map(function (LineItem $lineItem) {
-            return $lineItem->getId();
-        }, $original->getLineItems()->getElements());
+//        $lineItemIds = array_map(function (LineItem $lineItem) {
+//            return $lineItem->getId();
+//        }, $original->getLineItems()->getElements());
 
 //        $this->dynamicProductService->removeDynamicProductsByLineItemIds($lineItemIds, $context->getToken());
 //        $this->cartProductService->removeCartProductsByLineItemIds($lineItemIds, $context->getToken());
