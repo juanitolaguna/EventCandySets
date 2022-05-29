@@ -5,32 +5,23 @@ declare(strict_types=1);
 namespace EventCandy\Sets\Decorators;
 
 
-use ErrorException;
-use EventCandy\Sets\Core\Content\OrderLineItemProduct\OrderLineItemProductEntity;
 use EventCandy\Sets\Core\Content\Product\DataAbstractionLayer\LineItemStockUpdaterFunctionsInterface;
-use EventCandy\Sets\Utils;
 use Pickware\DalBundle\ContextFactory;
 use Pickware\DalBundle\EntityManager;
 use Pickware\MoneyBundle\Currency;
 use Pickware\MoneyBundle\MoneyValue;
+use Pickware\ShippingBundle\Notifications\NotificationService;
 use Pickware\ShippingBundle\Parcel\Parcel;
 use Pickware\ShippingBundle\Parcel\ParcelCustomsInformation;
 use Pickware\ShippingBundle\Parcel\ParcelItem;
 use Pickware\ShippingBundle\Parcel\ParcelItemCustomsInformation;
 use Pickware\ShippingBundle\ParcelHydration\ParcelHydrator;
-use Pickware\UnitsOfMeasurement\Dimensions\BoxDimensions;
-use Pickware\UnitsOfMeasurement\PhysicalQuantity\Length;
 use Pickware\UnitsOfMeasurement\PhysicalQuantity\Weight;
-use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
 use Shopware\Core\Checkout\Document\DocumentEntity as ShopwareDocumentEntity;
 use Shopware\Core\Checkout\Document\DocumentGenerator\InvoiceGenerator;
-use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemEntity;
 use Shopware\Core\Checkout\Order\OrderDefinition;
 use Shopware\Core\Checkout\Order\OrderEntity;
-use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\Pricing\Price;
-use Shopware\Core\Framework\DataAbstractionLayer\Pricing\PriceCollection;
 
 /**
  * Class PickwareDhlParcelHydratorDecorator
@@ -55,6 +46,9 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
      */
     private $entityManager;
 
+
+    private NotificationService $notificationService;
+
     /**
      * @var LineItemStockUpdaterFunctionsInterface[]
      */
@@ -76,12 +70,14 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
         ?ParcelHydrator $parcelHydrator,
         EntityManager $entityManager,
         ContextFactory $contextFactory,
+        NotificationService $notificationService,
         iterable $stockUpdaterFunctionsSupplier
     ) {
-        parent::__construct($entityManager, $contextFactory);
+        parent::__construct($entityManager, $contextFactory, $notificationService);
         $this->parcelHydrator = $parcelHydrator;
         $this->entityManager = $entityManager;
         $this->contextFactory = $contextFactory;
+        $this->notificationService = $notificationService;
         $this->stockUpdaterFunctionsSupplier = $stockUpdaterFunctionsSupplier;
     }
 
@@ -151,40 +147,21 @@ class PickwareDhlParcelHydratorDecorator extends ParcelHydrator
                 $parcelItem->setUnitWeight(null);
             }
 
-            $description = $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_DESCRIPTION] ?? '';
-            if (!$description) {
-                // If no explicit description for this product was provided, use the product name as fallback
-                $description = $orderLineItem->getLabel();
-            }
+            $description = $orderLineItem->getLabel();
 
             $itemCustomsInformation->setDescription($description);
-            $itemCustomsInformation->setTariffNumber(
-                $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_TARIFF_NUMBER] ?? null
-            );
-            $itemCustomsInformation->setCountryIsoOfOrigin(
-                $customFields[self::CUSTOM_FIELD_NAME_CUSTOMS_INFORMATION_COUNTRY_OF_ORIGIN] ?? null
-            );
         }
         return $this->mergeParcelItemsWithInner($parcel, $orderId, $context);
     }
 
-    private function setSupportedTypes()
+    private function setSupportedTypes(): void
     {
         foreach ($this->stockUpdaterFunctionsSupplier as $supplier) {
             $this->supportedTypes[] = $supplier->getLineItemType();
         }
     }
 
-    private function getPriceForTaxState(Price $price, Context $context): float
-    {
-        if ($context->getTaxState() === CartPrice::TAX_STATE_GROSS) {
-            return $price->getGross();
-        }
-
-        return $price->getNet();
-    }
-
-    private function mergeParcelItemsWithInner(Parcel $parcel, string $orderId, Context $context)
+    private function mergeParcelItemsWithInner(Parcel $parcel, string $orderId, Context $context): Parcel
     {
         $parentItems = $this->parcelHydrator->hydrateParcelFromOrder($orderId, $context);
         foreach ($parentItems->getItems() as $parcelItem) {
